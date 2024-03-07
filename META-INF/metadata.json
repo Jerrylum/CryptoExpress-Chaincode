@@ -1,0 +1,170 @@
+{
+  "components": {
+    "schemas": {
+      "Address": {
+        "$id": "Address",
+        "type": "object",
+        "properties": {
+          "hashId": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "publicKey": {
+            "type": "object"
+          }
+        },
+        "required": ["hashId", "line1", "recipient", "publicKey"]
+      },
+      "Courier": {
+        "$id": "Courier",
+        "type": "object",
+        "properties": {
+          "hashId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "publicKey": {
+            "type": "object"
+          }
+        },
+        "required": ["hashId", "name", "company", "telephone", "publicKey"]
+      },
+      "Good": {
+        "$id": "Good",
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "barcode": {
+            "type": "string"
+          }
+        },
+        "required": ["uuid", "name", "barcode"]
+      },
+      "Stop": {
+        "$id": "Stop",
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "arrivalDeltaTimestamp": {
+            "type": "number"
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "output": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "next": {
+            "$ref": "Transport"
+          }
+        },
+        "required": ["address", "arrivalDeltaTimestamp"]
+      },
+      "Transport": {
+        "$id": "Transport",
+        "type": "object",
+        "properties": {
+          "courier": {
+            "type": "string"
+          },
+          "info": {
+            "type": "string"
+          },
+          "destination": {
+            "$ref": "Stop"
+          }
+        },
+        "required": ["courier", "info", "destination"]
+      },
+      "Transhipment": {
+        "$id": "Transhipment",
+        "type": "object",
+        "properties": {
+          "delta": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "signature": {
+            "type": "object"
+          }
+        },
+        "required": ["delta", "timestamp", "signature"]
+      },
+      "Route": {
+        "$id": "Route",
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "goods": {
+            "type": "array",
+            "items": {
+              "$ref": "Good"
+            }
+          },
+          "source": {
+            "$ref": "Stop"
+          },
+          "partySignatures": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        },
+        "required": ["uuid", "goods", "source", "partySignatures"]
+      },
+      "RouteSession": {
+        "$id": "RouteSession",
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "transhipment": {
+            "type": "array",
+            "items": {
+              "$ref": "Transhipment"
+            }
+          }
+        },
+        "required": ["uuid", "transhipment"]
+      }
+    }
+  }
+}
