@@ -5,7 +5,7 @@ export class SimpleJSONSerializer implements Serializer {
     return Buffer.from(JSON.stringify(result));
   }
 
-  fromBuffer(data: any): { value: any; validateData: any } {
-    return { value: JSON.parse(data.toString("utf8")), validateData: undefined };
+  fromBuffer(data: WithImplicitCoercion<ArrayBuffer | SharedArrayBuffer>): { value: any; validateData: any } {
+    return { value: JSON.parse(Buffer.from(data).toString("utf8")), validateData: undefined };
   }
 }
