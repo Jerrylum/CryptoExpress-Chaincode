@@ -105,8 +105,8 @@
         },
         "required": ["courier", "info", "destination"]
       },
-      "ReceiptDetail": {
-        "$id": "ReceiptDetail",
+      "CommitDetail": {
+        "$id": "CommitDetail",
         "type": "object",
         "properties": {
           "delta": {
@@ -115,18 +115,21 @@
               "type": "number"
             }
           },
+          "info": {
+            "type": "string"
+          },
           "timestamp": {
             "type": "number"
           }
         },
-        "required": ["delta", "timestamp"]
+        "required": ["delta", "info", "timestamp"]
       },
-      "Receipt": {
-        "$id": "Receipt",
+      "Commit": {
+        "$id": "Commit",
         "type": "object",
         "properties": {
           "detail": {
-            "$ref": "ReceiptDetail"
+            "$ref": "CommitDetail"
           },
           "signature": {
             "type": "object"
@@ -134,24 +137,23 @@
         },
         "required": ["detail", "signature"]
       },
-      "RouteSessionSegment": {
-        "$id": "RouteSessionSegment",
+      "Segment": {
+        "$id": "Segment",
         "type": "object",
         "properties": {
           "srcOutgoing": {
-            "$ref": "Receipt"
+            "$ref": "Commit"
           },
           "courierReceiving": {
-            "$ref": "Receipt"
+            "$ref": "Commit"
           },
           "courierDelivering": {
-            "$ref": "Receipt"
+            "$ref": "Commit"
           },
           "dstIncoming": {
-            "$ref": "Receipt"
+            "$ref": "Commit"
           }
-        },
-        "required": ["srcOutgoing", "courierReceiving", "courierDelivering", "dstIncoming"]
+        }
       },
       "Route": {
         "$id": "Route",
@@ -180,9 +182,15 @@
           },
           "source": {
             "$ref": "Stop"
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "Segment"
+            }
           }
         },
-        "required": ["uuid", "goods", "addresses", "couriers", "source"]
+        "required": ["uuid", "goods", "addresses", "couriers", "source", "commits"]
       },
       "RouteProposal": {
         "$id": "RouteProposal",
@@ -199,22 +207,6 @@
           }
         },
         "required": ["route", "signatures"]
-      },
-      "RouteSession": {
-        "$id": "RouteSession",
-        "type": "object",
-        "properties": {
-          "uuid": {
-            "type": "string"
-          },
-          "segments": {
-            "type": "array",
-            "items": {
-              "$ref": "RouteSessionSegment"
-            }
-          }
-        },
-        "required": ["uuid", "segments"]
       }
     }
   }

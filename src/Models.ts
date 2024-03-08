@@ -27,7 +27,7 @@ export interface Stop {
   arrivalDeltaTimestamp: number;
   input: { [goodUuid: string]: number };
   output: { [goodUuid: string]: number };
-  next?: Transport;
+  next: Transport | undefined;
 }
 
 export interface Transport {
@@ -36,21 +36,25 @@ export interface Transport {
   destination: Stop;
 }
 
-export interface ReceiptDetail {
+export interface CommitDetail {
   delta: { [goodUuid: string]: number };
+  info: string;
   timestamp: number;
 }
 
-export interface Receipt {
-  detail: ReceiptDetail;
+export interface Commit {
+  detail: CommitDetail;
   signature: BufferObject;
 }
 
-export interface RouteSessionSegment {
-  srcOutgoing: Receipt;
-  courierReceiving: Receipt;
-  courierDelivering: Receipt;
-  dstIncoming: Receipt;
+/**
+ * Represents a point to point segment, a part of a route.
+ */
+export interface Segment {
+  srcOutgoing: Commit | undefined;
+  courierReceiving: Commit | undefined;
+  courierDelivering: Commit | undefined;
+  dstIncoming: Commit | undefined;
 }
 
 export interface Route {
@@ -59,14 +63,10 @@ export interface Route {
   addresses: { [addressHashId: string]: Address };
   couriers: { [courierHashId: string]: Courier };
   source: Stop;
+  commits: Segment[];
 }
 
 export interface RouteProposal {
   route: Route,
   signatures: { [partyHashId: string]: BufferObject };
-}
-
-export interface RouteSession {
-  uuid: string; // Route UUID
-  segments: RouteSessionSegment[];
 }
