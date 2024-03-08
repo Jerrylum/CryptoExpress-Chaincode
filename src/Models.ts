@@ -1,7 +1,7 @@
 export type BufferObject = { type: "Buffer"; data: Buffer };
 
 export class Address {
-  hashId!: string;
+  hashId!: string; // hash of the remaining fields
   line1!: string;
   line2!: string;
   recipient!: string;
@@ -11,7 +11,7 @@ export class Address {
 export interface IAddress extends Address {}
 
 export class Courier {
-  hashId!: string;
+  hashId!: string; // hash of the remaining fields
   name!: string;
   company!: string;
   telephone!: string;
@@ -86,7 +86,7 @@ export interface IRoute extends Route {}
 
 export class RouteProposal {
   route!: IRoute;
-  signatures!: { [partyHashId: string]: BufferObject };
+  signatures!: { [partyHashId: string]: BufferObject }; // partyHashId is the hashId of the address.
 }
 
 export interface IRouteProposal extends RouteProposal {}
