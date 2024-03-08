@@ -21,7 +21,7 @@
             "type": "object"
           }
         },
-        "required": ["hashId", "line1", "recipient", "publicKey"]
+        "required": ["hashId", "line1", "line2", "recipient", "publicKey"]
       },
       "Courier": {
         "$id": "Courier",
@@ -87,7 +87,7 @@
             "$ref": "Transport"
           }
         },
-        "required": ["address", "arrivalDeltaTimestamp"]
+        "required": ["address", "arrivalDeltaTimestamp", "input", "output"]
       },
       "Transport": {
         "$id": "Transport",
@@ -105,8 +105,8 @@
         },
         "required": ["courier", "info", "destination"]
       },
-      "Transhipment": {
-        "$id": "Transhipment",
+      "ReceiptDetail": {
+        "$id": "ReceiptDetail",
         "type": "object",
         "properties": {
           "delta": {
@@ -117,12 +117,41 @@
           },
           "timestamp": {
             "type": "number"
+          }
+        },
+        "required": ["delta", "timestamp"]
+      },
+      "Receipt": {
+        "$id": "Receipt",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "$ref": "ReceiptDetail"
           },
           "signature": {
             "type": "object"
           }
         },
-        "required": ["delta", "timestamp", "signature"]
+        "required": ["detail", "signature"]
+      },
+      "RouteSessionSegment": {
+        "$id": "RouteSessionSegment",
+        "type": "object",
+        "properties": {
+          "srcOutgoing": {
+            "$ref": "Receipt"
+          },
+          "courierReceiving": {
+            "$ref": "Receipt"
+          },
+          "courierDelivering": {
+            "$ref": "Receipt"
+          },
+          "dstIncoming": {
+            "$ref": "Receipt"
+          }
+        },
+        "required": ["srcOutgoing", "courierReceiving", "courierDelivering", "dstIncoming"]
       },
       "Route": {
         "$id": "Route",
@@ -132,22 +161,44 @@
             "type": "string"
           },
           "goods": {
-            "type": "array",
-            "items": {
-              "$ref": "Good"
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "addresses": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "Address"
+            }
+          },
+          "couriers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "Courier"
             }
           },
           "source": {
             "$ref": "Stop"
+          }
+        },
+        "required": ["uuid", "goods", "addresses", "couriers", "source"]
+      },
+      "RouteProposal": {
+        "$id": "RouteProposal",
+        "type": "object",
+        "properties": {
+          "route": {
+            "$ref": "Route"
           },
-          "partySignatures": {
+          "signatures": {
             "type": "object",
             "additionalProperties": {
               "type": "object"
             }
           }
         },
-        "required": ["uuid", "goods", "source", "partySignatures"]
+        "required": ["route", "signatures"]
       },
       "RouteSession": {
         "$id": "RouteSession",
@@ -156,14 +207,14 @@
           "uuid": {
             "type": "string"
           },
-          "transhipment": {
+          "segments": {
             "type": "array",
             "items": {
-              "$ref": "Transhipment"
+              "$ref": "RouteSessionSegment"
             }
           }
         },
-        "required": ["uuid", "transhipment"]
+        "required": ["uuid", "segments"]
       }
     }
   }

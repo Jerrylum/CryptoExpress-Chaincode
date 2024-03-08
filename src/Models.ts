@@ -36,20 +36,37 @@ export interface Transport {
   destination: Stop;
 }
 
-export interface Transhipment {
+export interface ReceiptDetail {
   delta: { [goodUuid: string]: number };
   timestamp: number;
+}
+
+export interface Receipt {
+  detail: ReceiptDetail;
   signature: BufferObject;
+}
+
+export interface RouteSessionSegment {
+  srcOutgoing: Receipt;
+  courierReceiving: Receipt;
+  courierDelivering: Receipt;
+  dstIncoming: Receipt;
 }
 
 export interface Route {
   uuid: string;
-  goods: Good[];
+  goods: { [goodUuid: string]: number };
+  addresses: { [addressHashId: string]: Address };
+  couriers: { [courierHashId: string]: Courier };
   source: Stop;
-  partySignatures: { [partyHashId: string]: BufferObject };
+}
+
+export interface RouteProposal {
+  route: Route,
+  signatures: { [partyHashId: string]: BufferObject };
 }
 
 export interface RouteSession {
   uuid: string; // Route UUID
-  transhipment: Transhipment[];
+  segments: RouteSessionSegment[];
 }
