@@ -18,7 +18,7 @@
             "type": "string"
           },
           "publicKey": {
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["hashId", "line1", "line2", "recipient", "publicKey"]
@@ -40,7 +40,7 @@
             "type": "string"
           },
           "publicKey": {
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["hashId", "name", "company", "telephone", "publicKey"]
@@ -132,7 +132,7 @@
             "$ref": "CommitDetail"
           },
           "signature": {
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["detail", "signature"]
@@ -202,7 +202,7 @@
           "signatures": {
             "type": "object",
             "additionalProperties": {
-              "type": "object"
+              "type": "string"
             }
           }
         },

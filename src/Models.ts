@@ -1,4 +1,4 @@
-export type BufferObject = { type: "Buffer"; data: Buffer };
+export type BufferObject = string;
 
 export class Address {
   hashId!: string; // hash of the remaining fields
