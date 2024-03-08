@@ -1,11 +1,12 @@
-import { Context, Contract, JSONSerializer, Param, Transaction } from "fabric-contract-api";
+import { Context, Contract, Transaction } from "fabric-contract-api";
 
 import { ChaincodeFromContract } from "./types/fabric-shim-internal";
 import { ChaincodeStub } from "fabric-shim";
 import sinon = require("sinon");
-import winston = require("winston");
 import { expect } from "chai";
-import { IAddress, BufferObject, Address, IStop } from "./Models";
+import { IAddress, Address } from "./Models";
+import { serializers } from ".";
+import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
 abstract class ExtendedChaincodeStub extends ChaincodeStub {
   abstract getBufferArgs(): Buffer[];
@@ -26,16 +27,11 @@ const certWithAttrs =
   "9v3hRt1r8j8vN0pMcg==" +
   "-----END CERTIFICATE-----";
 
-const serializers = {
-  transaction: "jsonSerializer",
-  serializers: {
-    jsonSerializer: JSONSerializer
-  }
-};
+const serializer = new SimpleJSONSerializer();
 
 function createStub(fnName: string, ...args: any[]) {
   const stub = sinon.createStubInstance(ExtendedChaincodeStub);
-  stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => new JSONSerializer().toBuffer(arg, typeof arg))]);
+  stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => serializer.toBuffer(arg))]);
   stub.getTxID.returns("txId");
   stub.getChannelID.returns("channelId");
   stub.getCreator.returns({ mspid: "mspId", idBytes: Buffer.from(certWithAttrs) });
@@ -56,8 +52,6 @@ describe("Test Models Serialization", async () => {
 
     @Transaction()
     public async sendAddress(ctx: Context, addr: Address): Promise<Address> {
-      console.log(addr);
-      
       return addr;
     }
   }
@@ -69,19 +63,17 @@ describe("Test Models Serialization", async () => {
 
     const actual = await c.Invoke(stub);
 
-    const expected = Buffer.from("hello world 123");
+    const expected = serializer.toBuffer("hello world 123");
 
     expect(actual.payload).to.deep.equal(expected);
   });
 
-  it("invoke transaction with correct primitive type parameters should return expected value (2)", async () => {
-    const stub = createStub("textTransaction", "world", "123"); // 123 has incorrect type but should be converted to number
+  it("invoke transaction with incorrect primitive type parameters should return error", async () => {
+    const stub = createStub("textTransaction", "world", "123");
 
     const actual = await c.Invoke(stub);
 
-    const expected = Buffer.from("hello world 123");
-
-    expect(actual.payload).to.deep.equal(expected);
+    expect(actual.payload).to.be.undefined;
   });
 
   it("invoke transaction with incorrect type of parameters should return error", async () => {
@@ -114,10 +106,7 @@ describe("Test Models Serialization", async () => {
       line1: "line1",
       line2: "line2",
       recipient: "recipient",
-      publicKey: {
-        type: "Buffer",
-        data: Buffer.from("publicKey")
-      }
+      publicKey: Buffer.from("publicKey").toString("hex")
     };
     const expected = Buffer.from(JSON.stringify(addr));
 
@@ -125,27 +114,10 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const addr2InStr = actual.payload.toString();
+    const addr2 = serializer.fromBuffer(actual.payload).value;    
 
-    const stub2 = createStub("sendAddress", addr2InStr);
+    const stub2 = createStub("sendAddress", addr2);
     const actual2 = await c.Invoke(stub2);
     expect(actual2.payload).to.deep.equal(expected);
-
-    // const addr2 = JSON.parse(actual.payload.toString()) as IAddress;
-
-    const cls: new () => any = Address;
-
-    const fullSchema = {
-      properties: {
-        prop: metadata.components.schemas[cls.name]
-      },
-      components: c.metadata.components
-    };
-    const { jsonForValidation: addr3 } = new JSONSerializer().fromBuffer(Buffer.from(actual.payload), fullSchema);
-    // const addr3 = JSON.parse(addr3Str) as IAddress;
-    console.log(addr);
-    console.log(addr3);
-
-    // expect(addr3).to.deep.equal(addr);
   });
 });
