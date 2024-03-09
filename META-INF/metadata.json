@@ -68,7 +68,7 @@
           "address": {
             "type": "string"
           },
-          "arrivalDeltaTimestamp": {
+          "expectedArrivalTimestamp": {
             "type": "number"
           },
           "input": {
@@ -87,7 +87,7 @@
             "$ref": "Transport"
           }
         },
-        "required": ["address", "arrivalDeltaTimestamp", "input", "output"]
+        "required": ["address", "expectedArrivalTimestamp", "input", "output"]
       },
       "Transport": {
         "$id": "Transport",

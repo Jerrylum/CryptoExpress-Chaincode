@@ -266,7 +266,7 @@ describe("Test Models Serialization", async () => {
   it("invoke transaction with correct Stop model should return correct result", async () => {
     const stop: IStop = {
       address: "address",
-      arrivalDeltaTimestamp: 123,
+      expectedArrivalTimestamp: 123,
       input: { goodUuid: 123 },
       output: { goodUuid: 123 },
       next: undefined
@@ -292,7 +292,7 @@ describe("Test Models Serialization", async () => {
 
     expect(actual.payload).to.be.undefined;
     expect(actual.message).to.equal(
-      `Unable to validate parameter due to ["should have required property 'address'","should have required property 'arrivalDeltaTimestamp'","should have required property 'input'","should have required property 'output'"]`
+      `Unable to validate parameter due to ["should have required property 'address'","should have required property 'expectedArrivalTimestamp'","should have required property 'input'","should have required property 'output'"]`
     );
   });
 
@@ -302,7 +302,7 @@ describe("Test Models Serialization", async () => {
       info: "info",
       destination: {
         address: "address",
-        arrivalDeltaTimestamp: 123,
+        expectedArrivalTimestamp: 123,
         input: { goodUuid: 123 },
         output: { goodUuid: 123 },
         next: undefined
@@ -485,7 +485,7 @@ describe("Test Models Serialization", async () => {
       },
       source: {
         address: "address",
-        arrivalDeltaTimestamp: 123,
+        expectedArrivalTimestamp: 123,
         input: { goodUuid: 123 },
         output: { goodUuid: 123 },
         next: undefined
@@ -583,7 +583,7 @@ describe("Test Models Serialization", async () => {
         },
         source: {
           address: "address",
-          arrivalDeltaTimestamp: 123,
+          expectedArrivalTimestamp: 123,
           input: { goodUuid: 123 },
           output: { goodUuid: 123 },
           next: undefined

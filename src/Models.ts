@@ -30,7 +30,7 @@ export interface IGood extends Good {}
 
 export class Stop {
   address!: string; // Hash ID
-  arrivalDeltaTimestamp!: number;
+  expectedArrivalTimestamp!: number;
   input!: { [goodUuid: string]: number };
   output!: { [goodUuid: string]: number };
   next: ITransport | undefined;
