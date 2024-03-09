@@ -41,7 +41,13 @@ export class DeliveryContract extends Contract {
     if (exists) {
         throw new Error(`The route proposal ${routeProposal.route.uuid} already exists.`);
     }
-    //check the address book and courier book TODO
+    //check the address book and courier book
+    if (!await this.validateAddressCourierHash(routeProposal.route.addresses)) {
+      throw new Error(`The address hash is not valid.`);
+    }
+    if (!await this.validateAddressCourierHash(routeProposal.route.couriers)) {
+      throw new Error(`The courier hash is not valid.`);
+    }
     const buffer = Buffer.from(JSON.stringify(routeProposal));
     await ctx.stub.putState(routeProposal.route.uuid, buffer);
   }
@@ -131,6 +137,24 @@ export class DeliveryContract extends Contract {
     const hash = createHash('sha256');
     hash.update(JSON.stringify(obj));
     return hash.digest('hex');
+  }
+
+  @Transaction(false)
+  @Returns("boolean")
+  private async validateAddressCourierHash(addresses: { [HashId: string]: IAddress | ICourier }): Promise<boolean> {
+    // for each key (hashId) in addresses
+    // use omitProperty to omit a object that from IAddress/ICourier which exclude the attribute of hashId
+    // use objectToSHA256 to hash the object, compare the hash with the hashId
+    // if the hash is not equal to the hashId, return false
+    // if the hash is equal to the hashId, continue to the next key
+    for (const key in Object.keys(addresses)) {
+      const address = addresses[key];
+      const hash = await this.objectToSHA256(this.omitProperty(address, 'hashId'));
+      if (hash !== key) {
+        return false;
+      }
+    }
+    return true;
   }
   
   private async signData(data: string, privateKey: string): Promise<string> {
