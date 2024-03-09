@@ -21,10 +21,12 @@ import {
   Address,
   HashIdObject,
   PublicKeyObject,
-  Courier
+  Courier,
+  Commit,
+  TransportStep
 } from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
-import { validateRoute, isEmptySegmentList, verifyObject, isValidHashIdObject, isValidPublicKey } from "./Utils";
+import { validateRoute, isEmptySegmentList, verifyObject, isValidHashIdObject, isValidPublicKey, getCommitTimeline } from "./Utils";
 
 @Info({ title: "DeliveryContract", description: "Smart Contract for handling delivery." })
 export class DeliveryContract extends Contract {
@@ -71,17 +73,6 @@ export class DeliveryContract extends Contract {
   public async createRouteProposal(ctx: Context, route: Route): Promise<RouteProposal> {
     validateRoute(route);
 
-    let count = 0;
-    let stop = route.source;
-    while (stop.next) {
-      count++;
-      stop = stop.next.destination;
-    }
-
-    if (count !== route.commits.length) {
-      throw new Error(`The number of segments does not match the number of transport.`);
-    }
-
     if (!isEmptySegmentList(route.commits)) {
       throw new Error(`One of the commit is not empty.`);
     }
@@ -93,6 +84,15 @@ export class DeliveryContract extends Contract {
 
     // It is possible to overwrite existing proposal with the same uuid.
     return this.putValue(ctx, "rp", route.uuid, routeProposal);
+  }
+
+  @Transaction()
+  public async removeRouteProposal(ctx: Context, routeUuid: string): Promise<void> {
+    if (!(await this.getValue(ctx, "rp", routeUuid))) {
+      throw new Error(`The route proposal ${routeUuid} does not exist.`);
+    }
+
+    await this.deleteValue(ctx, "rp", routeUuid);
   }
 
   @Transaction()
@@ -128,9 +128,65 @@ export class DeliveryContract extends Contract {
     return await this.putValue(ctx, "rp", routeUuid, routeProposal);
   }
 
-  // convert
+  @Transaction()
+  public async submitRouteProposal(ctx: Context, routeUuid: string): Promise<Route> {
+    const routeProposal = await this.getValue(ctx, "rp", routeUuid);
 
-  // commit
+    if (!routeProposal) {
+      throw new Error(`The route proposal ${routeUuid} does not exist.`);
+    }
+
+    const route = routeProposal.route;
+
+    const allHashIdList = [...Object.keys(route.addresses), ...Object.keys(route.couriers)];
+
+    if (Object.keys(routeProposal.signatures).length !== allHashIdList.length) {
+      throw new Error(`The route proposal is not fully signed.`);
+    }
+
+    await this.deleteValue(ctx, "rp", routeUuid);
+    await this.putValue(ctx, "rt", routeUuid, route);
+
+    return route;
+  }
+
+  @Transaction()
+  public async commitProgress(
+    ctx: Context,
+    routeUuid: string,
+    segmentIndex: number,
+    step: TransportStep,
+    commit: Commit
+  ): Promise<void> {
+    const route = await this.getValue(ctx, "rt", routeUuid);
+
+    if (!route) {
+      throw new Error(`The route ${routeUuid} does not exist.`);
+    }
+
+    const segment = route.commits[segmentIndex];
+
+    if (!segment) {
+      throw new Error(`The segment ${segmentIndex} does not exist.`);
+    }
+
+    if (segment[step]) {
+      throw new Error(`The step ${step} is already committed.`);
+    }
+
+    const timeline = getCommitTimeline(route);
+    const previous = timeline[timeline.length - 1];
+
+    if (previous && commit.detail.timestamp < previous.detail.timestamp) {
+      throw new Error(`The commit is not in the correct order.`);
+    }
+
+    // TODO: verify recent, check no jump step, verify signature
+
+    segment[step] = commit;
+
+    await this.putValue(ctx, "rt", routeUuid, route);
+  }
 
   @Transaction()
   public async releaseAddress(ctx: Context, address: Address): Promise<void> {
@@ -147,6 +203,10 @@ export class DeliveryContract extends Contract {
 
   @Transaction()
   public async removeAddress(ctx: Context, hashId: string): Promise<void> {
+    if (!(await this.getValue(ctx, "ad", hashId))) {
+      throw new Error(`The address ${hashId} does not exist.`);
+    }
+
     await this.deleteValue(ctx, "ad", hashId);
   }
 
@@ -165,6 +225,10 @@ export class DeliveryContract extends Contract {
 
   @Transaction()
   public async removeCourier(ctx: Context, hashId: string): Promise<void> {
+    if (!(await this.getValue(ctx, "cr", hashId))) {
+      throw new Error(`The courier ${hashId} does not exist.`);
+    }
+
     await this.deleteValue(ctx, "cr", hashId);
   }
 }

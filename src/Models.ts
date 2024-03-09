@@ -1,13 +1,16 @@
 export type KeyHexString = string;
 export type SignatureHexString = string;
 
-
 export interface HashIdObject {
   hashId: string;
 }
 
 export interface PublicKeyObject {
   publicKey: KeyHexString;
+}
+
+export interface UuidObject {
+  uuid: string;
 }
 
 export class Address implements HashIdObject, PublicKeyObject {
@@ -20,7 +23,7 @@ export class Address implements HashIdObject, PublicKeyObject {
 
 export interface IAddress extends Address {}
 
-export class Courier implements HashIdObject, PublicKeyObject  {
+export class Courier implements HashIdObject, PublicKeyObject {
   hashId!: string; // hash of the remaining fields
   name!: string;
   company!: string;
@@ -30,7 +33,7 @@ export class Courier implements HashIdObject, PublicKeyObject  {
 
 export interface ICourier extends Courier {}
 
-export class Good {
+export class Good implements UuidObject {
   uuid!: string;
   name!: string;
   barcode!: string;
@@ -83,7 +86,7 @@ export class Segment {
 
 export interface ISegment extends Segment {}
 
-export class Route {
+export class Route implements UuidObject {
   uuid!: string;
   goods!: { [goodUuid: string]: IGood };
   addresses!: { [addressHashId: string]: IAddress };
@@ -101,10 +104,13 @@ export class RouteProposal {
 
 export interface IRouteProposal extends RouteProposal {}
 
-export type ModelPrefix = "rp" | "ad" | "cr";
+export type ModelPrefix = "rp" | "rt" | "ad" | "cr";
 
 export type ModelTypeMap = {
-  "rp": IRouteProposal;
-  "ad": IAddress;
-  "cr": ICourier;
+  rp: IRouteProposal;
+  rt: IRoute;
+  ad: IAddress;
+  cr: ICourier;
 };
+
+export type TransportStep = "srcOutgoing" | "courierReceiving" | "courierDelivering" | "dstIncoming";
