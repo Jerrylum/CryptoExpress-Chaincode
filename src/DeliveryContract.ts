@@ -6,7 +6,7 @@
 
 import { Context, Contract, Info, Returns, Transaction } from "fabric-contract-api";
 import { Buffer } from "buffer";
-import { generateKeyPairSync, createSign, createVerify, createHash } from "node:crypto";
+import { KeyObject, generateKeyPairSync, createPublicKey, createSign, createVerify, createHash } from "node:crypto";
 import {
   IRouteProposal,
   IAddress,
@@ -17,7 +17,13 @@ import {
   Route,
   IStop,
   ITransport,
-  Segment
+  Segment,
+  SignatureHexString,
+  KeyHexString,
+  Address,
+  HashIdObject,
+  PublicKeyObject,
+  Courier
 } from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
@@ -33,22 +39,32 @@ function omitProperty<T, K extends keyof any>(obj: T, keyToOmit: K): Omit<T, K> 
   return rest;
 }
 
-interface HashIdObject {
-  hashId: string;
-}
-
 function isValidHashIdObject(target: HashIdObject) {
-  const obj = omitProperty(target, "hashId");
-  const hashTarget = JSON.stringify(obj);
-
-  const hash = createHash("sha256");
-  hash.update(hashTarget);
-  return hash.digest("hex") === target.hashId;
+  const hashObj = omitProperty(target, "hashId");
+  return objectToSha256Hash(hashObj) === target.hashId;
 }
 
-function isValidHashIdObjectCollection<T extends HashIdObject>(target: { [hashId: string]: T }) {
+function isValidHashIdObjectCollection(target: { [hashId: string]: HashIdObject }) {
   for (const hashId in Object.keys(target)) {
     if (target[hashId].hashId !== hashId || !isValidHashIdObject(target[hashId])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isValidPublicKey(target: KeyHexString) {
+  try {
+    importKey(target);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function isValidPublicKeyObjectCollection(target: { [hashId: string]: PublicKeyObject }) {
+  for (const hashId in Object.keys(target)) {
+    if (!isValidPublicKey(target[hashId].publicKey)) {
       return false;
     }
   }
@@ -109,6 +125,12 @@ function isValidRouteDetail(
   }
 }
 
+function objectToSha256Hash(obj: any): string {
+  const hash = createHash("sha256");
+  hash.update(SimpleJSONSerializer.deserialize(obj));
+  return hash.digest("hex");
+}
+
 function isEmptySegment(segment: Segment) {
   return (
     segment.srcOutgoing === undefined &&
@@ -140,8 +162,16 @@ function validateRoute(route: Route): boolean {
     throw new Error(`One of the address hash is not valid.`);
   }
 
+  if (!isValidPublicKeyObjectCollection(addressBook)) {
+    throw new Error(`One of the address public key is not valid.`);
+  }
+
   if (!isValidHashIdObjectCollection(courierBook)) {
     throw new Error(`One of the courier hash is not valid.`);
+  }
+
+  if (!isValidPublicKeyObjectCollection(courierBook)) {
+    throw new Error(`One of the courier public key is not valid.`);
   }
 
   const addressHashIdList = Object.keys(addressBook);
@@ -153,6 +183,25 @@ function validateRoute(route: Route): boolean {
   }
 
   return true;
+}
+
+function verifyObject(target: any, signature: SignatureHexString, publicKey: KeyHexString): boolean {
+  const verify = createVerify("SHA256");
+  verify.update(SimpleJSONSerializer.serialize(target));
+  verify.end();
+  return verify.verify(importKey(publicKey), signature, "hex");
+}
+
+function exportKey(key: KeyObject) {
+  return key.export({ type: "spki", format: "der" }).toString("hex");
+}
+
+function importKey(key: string) {
+  return createPublicKey({
+    format: "der",
+    type: "spki",
+    key: Buffer.from(key, "hex")
+  });
 }
 
 @Info({ title: "DeliveryChain", description: "Smart Contract for handling delivery chain." })
@@ -182,33 +231,19 @@ export class DeliveryContract extends Contract {
     return SimpleJSONSerializer.deserialize(data);
   }
 
-  // @Transaction(false)
-  // @Returns("boolean")
-  // public async routeExists(ctx: Context, routeUuid: string): Promise<boolean> {
-  //   const data = await ctx.stub.getState("rp-" + routeUuid);
-  //   return !!data && data.length > 0;
-  // }
+  private async putValue<T extends ModelPrefix>(
+    ctx: Context,
+    prefix: T,
+    uuid: string,
+    value: ModelTypeMap[T]
+  ): Promise<ModelTypeMap[T]> {
+    await ctx.stub.putState(`${prefix}-${uuid}`, SimpleJSONSerializer.serialize(value));
+    return value;
+  }
 
-  // @Transaction(false)
-  // @Returns("boolean")
-  // public async addressExists(ctx: Context, hashId: string): Promise<boolean> {
-  //   const data = await ctx.stub.getState("ad-" + hashId);
-  //   return !!data && data.length > 0;
-  // }
-
-  // @Transaction(false)
-  // @Returns("boolean")
-  // public async courierExists(ctx: Context, hashId: string): Promise<boolean> {
-  //   const data = await ctx.stub.getState("cr-" + hashId);
-  //   return !!data && data.length > 0;
-  // }
-
-  // @Transaction(false)
-  // @Returns("boolean")
-  // public async goodsExists(ctx: Context, goodsUuid: string): Promise<boolean> {
-  //   const data = await ctx.stub.getState("gs-" + goodsUuid);
-  //   return !!data && data.length > 0;
-  // }
+  private async deleteValue<T extends ModelPrefix>(ctx: Context, prefix: T, uuid: string): Promise<void> {
+    await ctx.stub.deleteState(`${prefix}-${uuid}`);
+  }
 
   @Transaction()
   public async createRouteProposal(ctx: Context, route: Route): Promise<RouteProposal> {
@@ -234,255 +269,76 @@ export class DeliveryContract extends Contract {
       signatures: {}
     };
 
-    await ctx.stub.putState("rp-" + route.uuid, SimpleJSONSerializer.serialize(routeProposal));
-
-    return routeProposal;
+    // It is possible to overwrite existing proposal with the same uuid.
+    return this.putValue(ctx, "rp", route.uuid, routeProposal);
   }
 
   @Transaction()
-  public async signRouteProposal(ctx: Context, routeId: string, unsignedData: string, sign: string): Promise<void> {
-    // unsignedData is the data to be signed for the local user, for courier, it is the Json stringified ICourier(without hashID), for address, it is the Json stringified IAddress(without hashID)
-    const routeProposal = await this.readRouteProposal(ctx, routeId);
-    // for each key in routeProposal.signatures
-    const addressBook = routeProposal.route.addresses;
-    const courierBook = routeProposal.route.couriers;
-    if (!(await this.validateAddressCourierHash(routeProposal.route.addresses))) {
-      throw new Error(`The address hash is not valid.`);
-    }
-    if (!(await this.validateAddressCourierHash(routeProposal.route.couriers))) {
-      throw new Error(`The courier hash is not valid.`);
-    }
-    if (!(await this.validateRouteProposalSignatures(routeProposal))) {
-      throw new Error(`The route proposal signature is not valid.`);
-    }
-    routeProposal.signatures[await this.objectToSHA256(unsignedData)] = sign;
-    const buffer = Buffer.from(JSON.stringify(routeProposal));
-    await ctx.stub.putState("rp-" + routeId, buffer);
-  }
+  public async signRouteProposal(
+    ctx: Context,
+    routeUuid: string,
+    entityHashId: string,
+    signature: SignatureHexString
+  ): Promise<RouteProposal> {
+    const routeProposal = await this.getValue(ctx, "rp", routeUuid);
 
-  @Transaction(false)
-  @Returns("IRouteProposal")
-  private async readRouteProposal(ctx: Context, routeId: string): Promise<IRouteProposal> {
-    const data = await ctx.stub.getState(routeId);
-    if (!data || data.length === 0) {
-      throw new Error(`The route proposal ${routeId} does not exist.`);
+    if (!routeProposal) {
+      throw new Error(`The route proposal ${routeUuid} does not exist.`);
     }
-    const routeProposal = JSON.parse(data.toString()) as IRouteProposal;
 
-    return routeProposal;
-  }
+    const route = routeProposal.route;
 
-  // 2 functions for create a new address, update an existing address
-  @Transaction()
-  public async createAddress(ctx: Context, addressJsonStr: string): Promise<void> {
-    const address = JSON.parse(addressJsonStr) as IAddress;
-    // check the address value on "hashId", "line1", "line2", "recipient", "publicKey"
-    // if the value is not valid, throw an error
-    if (
-      address.hashId === undefined ||
-      address.line1 === undefined ||
-      address.line2 === undefined ||
-      address.recipient === undefined ||
-      address.publicKey === undefined
-    ) {
-      throw new Error(`The address ${address.hashId} is not valid.`);
+    const entity: IAddress | ICourier | undefined =
+      route.addresses[entityHashId] || route.couriers[entityHashId] || undefined;
+
+    if (!entity) {
+      throw new Error(`The entity ${entityHashId} does not exist in the route.`);
     }
-    // check the address hash
-    if (address.hashId !== (await this.objectToSHA256(address))) {
-      throw new Error(`The address ${address.hashId} is not valid.`);
+
+    const publicKey = entity.publicKey;
+
+    if (!verifyObject(route, signature, publicKey)) {
+      throw new Error(`The signature is not valid.`);
     }
-    const exists: boolean = await this.addressExists(ctx, address.hashId);
-    if (exists) {
-      throw new Error(`The address ${address.hashId} already exists.`);
-    }
-    const buffer = Buffer.from(JSON.stringify(address));
-    await ctx.stub.putState("ad-" + address.hashId, buffer);
+
+    routeProposal.signatures[entityHashId] = signature;
+
+    return await this.putValue(ctx, "rp", routeUuid, routeProposal);
   }
 
   @Transaction()
-  public async updateAddress(ctx: Context, addressJsonStr: string): Promise<void> {
-    const address = JSON.parse(addressJsonStr) as IAddress;
-    // check the address value on "hashId", "line1", "line2", "recipient", "publicKey"
-    // if the value is not valid, throw an error
-    if (
-      address.hashId === undefined ||
-      address.line1 === undefined ||
-      address.line2 === undefined ||
-      address.recipient === undefined ||
-      address.publicKey === undefined
-    ) {
-      throw new Error(`The address ${address.hashId} is not valid.`);
+  public async releaseAddress(ctx: Context, address: Address): Promise<void> {
+    if (!isValidHashIdObject(address)) {
+      throw new Error(`The address hashId is not valid.`);
     }
-    // check the address hash
-    if (address.hashId !== (await this.objectToSHA256(address))) {
-      throw new Error(`The address ${address.hashId} is not valid.`);
-    }
-    const exists: boolean = await this.addressExists(ctx, address.hashId);
-    if (!exists) {
-      throw new Error(`The address ${address.hashId} does not exist.`);
-    }
-    const buffer = Buffer.from(JSON.stringify(address));
-    await ctx.stub.putState("ad-" + address.hashId, buffer);
-  }
 
-  // 2 functions for create a new courier, update an existing courier
-  @Transaction()
-  public async createCourier(ctx: Context, courierJsonStr: string): Promise<void> {
-    const courier = JSON.parse(courierJsonStr) as ICourier;
-    // check the courier value on "hashId", "name", "company", "telephone", "publicKey"
-    // if the value is not valid, throw an error
-    if (
-      courier.hashId === undefined ||
-      courier.name === undefined ||
-      courier.company === undefined ||
-      courier.telephone === undefined ||
-      courier.publicKey === undefined
-    ) {
-      throw new Error(`The courier ${courier.hashId} is not valid.`);
+    if (!isValidPublicKey(address.publicKey)) {
+      throw new Error(`The public key is not valid.`);
     }
-    // check the courier hash
-    if (courier.hashId !== (await this.objectToSHA256(courier))) {
-      throw new Error(`The courier ${courier.hashId} is not valid.`);
-    }
-    const exists: boolean = await this.courierExists(ctx, courier.hashId);
-    if (exists) {
-      throw new Error(`The courier ${courier.hashId} already exists.`);
-    }
-    const buffer = Buffer.from(JSON.stringify(courier));
-    await ctx.stub.putState("cr-" + courier.hashId, buffer);
+
+    this.putValue(ctx, "ad", address.hashId, address);
   }
 
   @Transaction()
-  public async updateCourier(ctx: Context, courierJsonStr: string): Promise<void> {
-    const courier = JSON.parse(courierJsonStr) as ICourier;
-    // check the courier value on "hashId", "name", "company", "telephone", "publicKey"
-    // if the value is not valid, throw an error
-    if (
-      courier.hashId === undefined ||
-      courier.name === undefined ||
-      courier.company === undefined ||
-      courier.telephone === undefined ||
-      courier.publicKey === undefined
-    ) {
-      throw new Error(`The courier ${courier.hashId} is not valid.`);
-    }
-    // check the courier hash
-    if (courier.hashId !== (await this.objectToSHA256(courier))) {
-      throw new Error(`The courier ${courier.hashId} is not valid.`);
-    }
-    const exists: boolean = await this.courierExists(ctx, courier.hashId);
-    if (!exists) {
-      throw new Error(`The courier ${courier.hashId} does not exist.`);
-    }
-    const buffer = Buffer.from(JSON.stringify(courier));
-    await ctx.stub.putState("cr-" + courier.hashId, buffer);
-  }
-
-  // 2 functions for create a new goods, update an existing goods
-  @Transaction()
-  public async createGoods(ctx: Context, goodsJsonStr: string): Promise<void> {
-    const goods = JSON.parse(goodsJsonStr) as any;
-    // check the goods value on "uuid", "name", "barcode"
-    // if the value is not valid, throw an error
-    if (goods.uuid === undefined || goods.name === undefined || goods.barcode === undefined) {
-      throw new Error(`The goods ${goods.uuid} is not valid.`);
-    }
-    const exists: boolean = await this.goodsExists(ctx, goods.uuid);
-    if (exists) {
-      throw new Error(`The goods ${goods.uuid} already exists.`);
-    }
-    const buffer = Buffer.from(JSON.stringify(goods));
-    await ctx.stub.putState("gs-" + goods.uuid, buffer);
+  public async removeAddress(ctx: Context, hashId: string): Promise<void> {
+    await this.deleteValue(ctx, "ad", hashId);
   }
 
   @Transaction()
-  public async updateGoods(ctx: Context, goodsJsonStr: string): Promise<void> {
-    const goods = JSON.parse(goodsJsonStr) as any;
-    // check the goods value on "uuid", "name", "barcode"
-    // if the value is not valid, throw an error
-    if (goods.uuid === undefined || goods.name === undefined || goods.barcode === undefined) {
-      throw new Error(`The goods ${goods.uuid} is not valid.`);
+  public async releaseCourier(ctx: Context, courier: Courier): Promise<void> {
+    if (!isValidHashIdObject(courier)) {
+      throw new Error(`The courier hashId is not valid.`);
     }
-    const exists: boolean = await this.goodsExists(ctx, goods.uuid);
-    if (!exists) {
-      throw new Error(`The goods ${goods.uuid} does not exist.`);
+
+    if (!isValidPublicKey(courier.publicKey)) {
+      throw new Error(`The public key is not valid.`);
     }
-    const buffer = Buffer.from(JSON.stringify(goods));
-    await ctx.stub.putState("gs-" + goods.uuid, buffer);
+
+    this.putValue(ctx, "cr", courier.hashId, courier);
   }
 
-  @Transaction(false)
-  private async objectToSHA256(obj: any): Promise<string> {
-    const hash = createHash("sha256");
-    hash.update(JSON.stringify(obj));
-    return hash.digest("hex");
-  }
-
-  @Transaction(false)
-  @Returns("boolean")
-  private async validateAddressCourierHash(addresses: { [HashId: string]: IAddress | ICourier }): Promise<boolean> {
-    // for each key (hashId) in addresses
-    // use omitProperty to omit a object that from IAddress/ICourier which exclude the attribute of hashId
-    // use objectToSHA256 to hash the object, compare the hash with the hashId
-    // if the hash is not equal to the hashId, return false
-    // if the hash is equal to the hashId, continue to the next key
-    for (const key in Object.keys(addresses)) {
-      const address = addresses[key];
-      const hash = await this.objectToSHA256(this.omitProperty(address, "hashId"));
-      if (hash !== key) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Transaction(false)
-  @Returns("boolean")
-  private async validateRouteProposalSignatures(routeProposal: IRouteProposal): Promise<boolean> {
-    var pk = undefined;
-    const addressBook = routeProposal.route.addresses;
-    const courierBook = routeProposal.route.couriers;
-    for (const key in Object.keys(routeProposal.signatures)) {
-      if (Object.keys(addressBook).includes(key)) {
-        pk = addressBook[key].publicKey;
-      } else if (Object.keys(courierBook).includes(key)) {
-        pk = courierBook[key].publicKey;
-      }
-      // irrelevant signature exists
-      if (pk === undefined) {
-        continue;
-      }
-      const data = JSON.stringify(routeProposal.route);
-      const signedData = routeProposal.signatures[key];
-      if (!(await this.verifyData(data, signedData, pk))) {
-        return false;
-      }
-      pk = undefined;
-    }
-    return true;
-  }
-
-  @Transaction(false)
-  @Returns("string")
-  private async signData(data: string, privateKey: string): Promise<string> {
-    const sign = createSign("SHA256");
-    sign.update(data);
-    sign.end();
-    return sign.sign(privateKey, "hex");
-  }
-
-  @Transaction(false)
-  @Returns("boolean")
-  private async verifyData(data: string, signature: string, publicKey: string): Promise<boolean> {
-    const verify = createVerify("SHA256");
-    verify.update(data);
-    verify.end();
-    return verify.verify(publicKey, signature, "hex");
-  }
-
-  @Transaction(false)
-  private omitProperty<T, K extends keyof any>(obj: T, keyToOmit: K): Omit<T, K> {
-    const { [keyToOmit]: _, ...rest } = obj;
-    return rest as Omit<T, K>;
+  @Transaction()
+  public async removeCourier(ctx: Context, hashId: string): Promise<void> {
+    await this.deleteValue(ctx, "cr", hashId);
   }
 }

@@ -1,6 +1,16 @@
 export type KeyHexString = string;
+export type SignatureHexString = string;
 
-export class Address {
+
+export interface HashIdObject {
+  hashId: string;
+}
+
+export interface PublicKeyObject {
+  publicKey: KeyHexString;
+}
+
+export class Address implements HashIdObject, PublicKeyObject {
   hashId!: string; // hash of the remaining fields
   line1!: string;
   line2!: string;
@@ -10,7 +20,7 @@ export class Address {
 
 export interface IAddress extends Address {}
 
-export class Courier {
+export class Courier implements HashIdObject, PublicKeyObject  {
   hashId!: string; // hash of the remaining fields
   name!: string;
   company!: string;
@@ -56,7 +66,7 @@ export interface ICommitDetail extends CommitDetail {}
 
 export class Commit {
   detail!: ICommitDetail;
-  signature!: KeyHexString;
+  signature!: SignatureHexString;
 }
 
 export interface ICommit extends Commit {}
@@ -86,7 +96,7 @@ export interface IRoute extends Route {}
 
 export class RouteProposal {
   route!: IRoute;
-  signatures!: { [partyHashId: string]: KeyHexString }; // partyHashId is the hashId of the address.
+  signatures!: { [partyHashId: string]: SignatureHexString }; // partyHashId is the hashId of the address.
 }
 
 export interface IRouteProposal extends RouteProposal {}
