@@ -1,4 +1,4 @@
-import { Serializer } from "./types/fabric-shim-internal";
+import { Serializer } from "./lib/fabric-shim-internal";
 
 export class SimpleJSONSerializer implements Serializer {
   toBuffer(result: any): Buffer {
