@@ -1,5 +1,25 @@
-import { createHash, createVerify, KeyObject, createPublicKey, KeyPairKeyObjectResult, generateKeyPairSync } from "crypto";
-import { HashIdObject, KeyHexString, PublicKeyObject, IStop, ITransport, Segment, Route, SignatureHexString } from "./Models";
+import {
+  createHash,
+  createVerify,
+  KeyObject,
+  createPublicKey,
+  KeyPairKeyObjectResult,
+  generateKeyPairSync,
+  createSign,
+  createPrivateKey
+} from "crypto";
+import {
+  HashIdObject,
+  KeyHexString,
+  PublicKeyObject,
+  IStop,
+  ITransport,
+  Segment,
+  Route,
+  SignatureHexString,
+  Commit,
+  UuidObject
+} from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
 export function omitProperty<T, K extends keyof any>(obj: T, keyToOmit: K): Omit<T, K> {
@@ -13,17 +33,12 @@ export function isValidHashIdObject(target: HashIdObject) {
 }
 
 export function isValidHashIdObjectCollection(target: { [hashId: string]: HashIdObject }) {
-  for (const hashId in Object.keys(target)) {
-    if (target[hashId].hashId !== hashId || !isValidHashIdObject(target[hashId])) {
-      return false;
-    }
-  }
-  return true;
+  return Object.keys(target).every(hashId => target[hashId].hashId === hashId && isValidHashIdObject(target[hashId]));
 }
 
 export function isValidPublicKey(target: KeyHexString) {
   try {
-    importKey(target);
+    importPublicKey(target);
     return true;
   } catch (e) {
     return false;
@@ -31,25 +46,27 @@ export function isValidPublicKey(target: KeyHexString) {
 }
 
 export function isValidPublicKeyObjectCollection(target: { [hashId: string]: PublicKeyObject }) {
-  for (const hashId in Object.keys(target)) {
-    if (!isValidPublicKey(target[hashId].publicKey)) {
-      return false;
-    }
-  }
-  return true;
+  //   for (const hashId in Object.keys(target)) {
+  //     if (!isValidPublicKey(target[hashId].publicKey)) {
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  return Object.keys(target).every(hashId => isValidPublicKey(target[hashId].publicKey));
 }
 
 export function isValidUuid(target: string) {
   return target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
 }
 
-export function isValidUuidObjectCollection(target: { [uuid: string]: any }) {
-  for (const uuid in Object.keys(target)) {
-    if (target[uuid].uuid !== uuid || !isValidUuid(target[uuid].uuid)) {
-      return false;
-    }
-  }
-  return true;
+export function isValidUuidObjectCollection(target: { [uuid: string]: UuidObject }) {
+  //   for (const uuid in Object.keys(target)) {
+  //     if (target[uuid].uuid !== uuid || !isValidUuid(target[uuid].uuid)) {
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  return Object.keys(target).every(uuid => target[uuid].uuid === uuid && isValidUuid(target[uuid].uuid));
 }
 
 export function isValidRouteDetail(
@@ -78,10 +95,16 @@ export function isValidRouteDetail(
     }
     currentTimestamp = stop.expectedArrivalTimestamp;
 
-    for (const uuid in [...Object.keys(stop.input), ...Object.keys(stop.output)]) {
-      if (!goodsUuids.includes(uuid)) {
-        return false;
-      }
+    // for (const uuid in [...Object.keys(stop.input), ...Object.keys(stop.output)]) {
+    //   if (!goodsUuids.includes(uuid)) {
+    //     return false;
+    //   }
+    // }
+    if (
+      !Object.keys(stop.input).every(uuid => goodsUuids.includes(uuid)) ||
+      !Object.keys(stop.output).every(uuid => goodsUuids.includes(uuid))
+    ) {
+      return false;
     }
 
     if (!courierHashIds.includes(transport.courier)) {
@@ -95,7 +118,7 @@ export function isValidRouteDetail(
 
 export function objectToSha256Hash(obj: any): string {
   const hash = createHash("sha256");
-  hash.update(SimpleJSONSerializer.deserialize(obj));
+  hash.update(SimpleJSONSerializer.serialize(obj));
   return hash.digest("hex");
 }
 
@@ -150,26 +173,81 @@ export function validateRoute(route: Route): boolean {
     throw new Error(`The route detail is not valid.`);
   }
 
+  let count = 0;
+  let stop = route.source;
+  while (stop.next) {
+    count++;
+    stop = stop.next.destination;
+  }
+
+  if (count !== route.commits.length) {
+    throw new Error(`The number of segments does not match the number of transport.`);
+  }
+
   return true;
 }
 
-// TODO signObject
+export class CommitTimeline {
+  constructor(public route: Route) {
+    // TODO
+  }
+}
+
+export function getCommitTimeline(route: Route): Commit[] {
+  let commits: Commit[] = [];
+
+  route.commits.forEach(segment => {
+    if (segment.srcOutgoing) {
+      commits.push(segment.srcOutgoing);
+    }
+    if (segment.courierReceiving) {
+      commits.push(segment.courierReceiving);
+    }
+    if (segment.courierDelivering) {
+      commits.push(segment.courierDelivering);
+    }
+    if (segment.dstIncoming) {
+      commits.push(segment.dstIncoming);
+    }
+  });
+
+  return commits;
+}
+
+export function signObject(target: any, privateKey: KeyHexString): SignatureHexString {
+  const sign = createSign("SHA256");
+  sign.update(SimpleJSONSerializer.serialize(target));
+  sign.end();
+  return sign.sign(importPrivateKey(privateKey), "hex");
+}
 
 export function verifyObject(target: any, signature: SignatureHexString, publicKey: KeyHexString): boolean {
   const verify = createVerify("SHA256");
   verify.update(SimpleJSONSerializer.serialize(target));
   verify.end();
-  return verify.verify(importKey(publicKey), signature, "hex");
+  return verify.verify(importPublicKey(publicKey), signature, "hex");
 }
 
-export function exportKey(key: KeyObject) {
+export function exportPublicKey(key: KeyObject) {
   return key.export({ type: "spki", format: "der" }).toString("hex");
 }
 
-export function importKey(key: string) {
+export function exportPrivateKey(key: KeyObject) {
+  return key.export({ type: "sec1", format: "der" }).toString("hex");
+}
+
+export function importPublicKey(key: string) {
   return createPublicKey({
     format: "der",
     type: "spki",
+    key: Buffer.from(key, "hex")
+  });
+}
+
+export function importPrivateKey(key: string) {
+  return createPrivateKey({
+    format: "der",
+    type: "sec1",
     key: Buffer.from(key, "hex")
   });
 }
