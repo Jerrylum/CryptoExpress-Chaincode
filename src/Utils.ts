@@ -46,12 +46,6 @@ export function isValidPublicKey(target: KeyHexString) {
 }
 
 export function isValidPublicKeyObjectCollection(target: { [hashId: string]: PublicKeyObject }) {
-  //   for (const hashId in Object.keys(target)) {
-  //     if (!isValidPublicKey(target[hashId].publicKey)) {
-  //       return false;
-  //     }
-  //   }
-  //   return true;
   return Object.keys(target).every(hashId => isValidPublicKey(target[hashId].publicKey));
 }
 
@@ -60,12 +54,6 @@ export function isValidUuid(target: string) {
 }
 
 export function isValidUuidObjectCollection(target: { [uuid: string]: UuidObject }) {
-  //   for (const uuid in Object.keys(target)) {
-  //     if (target[uuid].uuid !== uuid || !isValidUuid(target[uuid].uuid)) {
-  //       return false;
-  //     }
-  //   }
-  //   return true;
   return Object.keys(target).every(uuid => target[uuid].uuid === uuid && isValidUuid(target[uuid].uuid));
 }
 
@@ -95,11 +83,6 @@ export function isValidRouteDetail(
     }
     currentTimestamp = stop.expectedArrivalTimestamp;
 
-    // for (const uuid in [...Object.keys(stop.input), ...Object.keys(stop.output)]) {
-    //   if (!goodsUuids.includes(uuid)) {
-    //     return false;
-    //   }
-    // }
     if (
       !Object.keys(stop.input).every(uuid => goodsUuids.includes(uuid)) ||
       !Object.keys(stop.output).every(uuid => goodsUuids.includes(uuid))
