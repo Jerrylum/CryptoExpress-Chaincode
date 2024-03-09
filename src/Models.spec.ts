@@ -27,11 +27,9 @@ const certWithAttrs =
   "9v3hRt1r8j8vN0pMcg==" +
   "-----END CERTIFICATE-----";
 
-const serializer = new SimpleJSONSerializer();
-
 function createStub(fnName: string, ...args: any[]) {
   const stub = sinon.createStubInstance(ExtendedChaincodeStub);
-  stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => serializer.toBuffer(arg))]);
+  stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => SimpleJSONSerializer.serialize(arg))]);
   stub.getTxID.returns("txId");
   stub.getChannelID.returns("channelId");
   stub.getCreator.returns({ mspid: "mspId", idBytes: Buffer.from(certWithAttrs) });
@@ -63,7 +61,7 @@ describe("Test Models Serialization", async () => {
 
     const actual = await c.Invoke(stub);
 
-    const expected = serializer.toBuffer("hello world 123");
+    const expected = SimpleJSONSerializer.serialize("hello world 123");
 
     expect(actual.payload).to.deep.equal(expected);
   });
@@ -114,7 +112,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const addr2 = serializer.fromBuffer(actual.payload).value;    
+    const addr2: IAddress = SimpleJSONSerializer.deserialize(actual.payload);   
 
     const stub2 = createStub("sendAddress", addr2);
     const actual2 = await c.Invoke(stub2);
