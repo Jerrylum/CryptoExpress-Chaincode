@@ -12,8 +12,8 @@ import {
   HashIdObject,
   KeyHexString,
   PublicKeyObject,
-  IStop,
-  ITransport,
+  Stop,
+  Transport,
   Segment,
   Route,
   SignatureHexString,
@@ -61,10 +61,10 @@ export function isValidRouteDetail(
   addressHashIds: string[],
   courierHashIds: string[],
   goodsUuids: string[],
-  firstStop: IStop
+  firstStop: Stop
 ) {
-  let stop: IStop | undefined = firstStop;
-  let transport: ITransport | undefined = stop.next;
+  let stop: Stop | undefined = firstStop;
+  let transport: Transport | undefined = stop.next;
 
   let currentTimestamp = 0;
 

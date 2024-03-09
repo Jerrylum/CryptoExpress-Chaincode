@@ -5,25 +5,15 @@ import { ChaincodeStub } from "fabric-shim";
 import sinon = require("sinon");
 import { expect } from "chai";
 import {
-  IAddress,
   Address,
-  ICourier,
   Courier,
-  IGood,
   Good,
-  IStop,
   Stop,
-  ITransport,
   Transport,
-  ICommitDetail,
   CommitDetail,
-  ICommit,
   Commit,
-  ISegment,
   Segment,
-  IRoute,
   Route,
-  IRouteProposal,
   RouteProposal
 } from "./Models";
 import { serializers } from ".";
@@ -165,7 +155,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Address model should return correct result", async () => {
-    const addr: IAddress = {
+    const addr: Address = {
       hashId: "hashId",
       line1: "line1",
       line2: "line2",
@@ -178,7 +168,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const addr2: IAddress = SimpleJSONSerializer.deserialize(actual.payload);
+    const addr2: Address = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendAddress", addr2);
     const actual2 = await c.Invoke(stub2);
@@ -186,7 +176,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Address model should return error", async () => {
-    const addr: IAddress = {} as any;
+    const addr: Address = {} as any;
 
     const stub = createStub("sendAddress", addr);
     const actual = await c.Invoke(stub);
@@ -200,7 +190,7 @@ describe("Test Models Serialization", async () => {
   //
 
   it("invoke transaction with correct Courier model should return correct result", async () => {
-    const courier: ICourier = {
+    const courier: Courier = {
       hashId: "hashId",
       name: "name",
       company: "company",
@@ -213,7 +203,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const courier2: ICourier = SimpleJSONSerializer.deserialize(actual.payload);
+    const courier2: Courier = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendCourier", courier2);
     const actual2 = await c.Invoke(stub2);
@@ -221,7 +211,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Courier model should return error", async () => {
-    const courier: ICourier = {} as any;
+    const courier: Courier = {} as any;
 
     const stub = createStub("sendCourier", courier);
     const actual = await c.Invoke(stub);
@@ -233,7 +223,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Good model should return correct result", async () => {
-    const good: IGood = {
+    const good: Good = {
       uuid: "uuid",
       name: "name",
       barcode: "barcode"
@@ -244,7 +234,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const good2: IGood = SimpleJSONSerializer.deserialize(actual.payload);
+    const good2: Good = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendGood", good2);
     const actual2 = await c.Invoke(stub2);
@@ -252,7 +242,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Good model should return error", async () => {
-    const good: IGood = {} as any;
+    const good: Good = {} as any;
 
     const stub = createStub("sendGood", good);
     const actual = await c.Invoke(stub);
@@ -264,7 +254,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Stop model should return correct result", async () => {
-    const stop: IStop = {
+    const stop: Stop = {
       address: "address",
       expectedArrivalTimestamp: 123,
       input: { goodUuid: 123 },
@@ -277,7 +267,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const stop2: IStop = SimpleJSONSerializer.deserialize(actual.payload);
+    const stop2: Stop = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendStop", stop2);
     const actual2 = await c.Invoke(stub2);
@@ -285,7 +275,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Stop model should return error", async () => {
-    const stop: IStop = {} as any;
+    const stop: Stop = {} as any;
 
     const stub = createStub("sendStop", stop);
     const actual = await c.Invoke(stub);
@@ -297,7 +287,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Transport model should return correct result", async () => {
-    const transport: ITransport = {
+    const transport: Transport = {
       courier: "courier",
       info: "info",
       destination: {
@@ -314,7 +304,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const transport2: ITransport = SimpleJSONSerializer.deserialize(actual.payload);
+    const transport2: Transport = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendTransport", transport2);
     const actual2 = await c.Invoke(stub2);
@@ -322,7 +312,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Transport model should return error", async () => {
-    const transport: ITransport = {} as any;
+    const transport: Transport = {} as any;
 
     const stub = createStub("sendTransport", transport);
     const actual = await c.Invoke(stub);
@@ -334,7 +324,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct CommitDetail model should return correct result", async () => {
-    const commitDetail: ICommitDetail = {
+    const commitDetail: CommitDetail = {
       delta: { goodUuid: 123 },
       info: "info",
       timestamp: 123
@@ -345,7 +335,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const commitDetail2: ICommitDetail = SimpleJSONSerializer.deserialize(actual.payload);
+    const commitDetail2: CommitDetail = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendCommitDetail", commitDetail2);
     const actual2 = await c.Invoke(stub2);
@@ -353,7 +343,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect CommitDetail model should return error", async () => {
-    const commitDetail: ICommitDetail = {} as any;
+    const commitDetail: CommitDetail = {} as any;
 
     const stub = createStub("sendCommitDetail", commitDetail);
     const actual = await c.Invoke(stub);
@@ -365,7 +355,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Commit model should return correct result", async () => {
-    const commit: ICommit = {
+    const commit: Commit = {
       detail: {
         delta: { goodUuid: 123 },
         info: "info",
@@ -379,7 +369,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const commit2: ICommit = SimpleJSONSerializer.deserialize(actual.payload);
+    const commit2: Commit = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendCommit", commit2);
     const actual2 = await c.Invoke(stub2);
@@ -387,7 +377,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Commit model should return error", async () => {
-    const commit: ICommit = {} as any;
+    const commit: Commit = {} as any;
 
     const stub = createStub("sendCommit", commit);
     const actual = await c.Invoke(stub);
@@ -399,7 +389,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Segment model should return correct result", async () => {
-    const segment: ISegment = {
+    const segment: Segment = {
       srcOutgoing: {
         detail: {
           delta: { goodUuid: 123 },
@@ -439,7 +429,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const segment2: ISegment = SimpleJSONSerializer.deserialize(actual.payload);
+    const segment2: Segment = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendSegment", segment2);
     const actual2 = await c.Invoke(stub2);
@@ -447,7 +437,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Segment model should be fine", async () => {
-    const segment: ISegment = {} as any;
+    const segment: Segment = {} as any;
 
     const expected = SimpleJSONSerializer.serialize(segment);
     const stub = createStub("sendSegment", segment);
@@ -456,7 +446,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct Route model should return correct result", async () => {
-    const route: IRoute = {
+    const route: Route = {
       uuid: "uuid",
       goods: {
         goodUuid: {
@@ -533,7 +523,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const route2: IRoute = SimpleJSONSerializer.deserialize(actual.payload);
+    const route2: Route = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendRoute", route2);
     const actual2 = await c.Invoke(stub2);
@@ -541,7 +531,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect Route model should return error", async () => {
-    const route: IRoute = {} as any;
+    const route: Route = {} as any;
 
     const stub = createStub("sendRoute", route);
     const actual = await c.Invoke(stub);
@@ -553,7 +543,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with correct RouteProposal model should return correct result", async () => {
-    const routeProposal: IRouteProposal = {
+    const routeProposal: RouteProposal = {
       route: {
         uuid: "uuid",
         goods: {
@@ -633,7 +623,7 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
     expect(actual.payload).to.deep.equal(expected);
 
-    const routeProposal2: IRouteProposal = SimpleJSONSerializer.deserialize(actual.payload);
+    const routeProposal2: RouteProposal = SimpleJSONSerializer.deserialize(actual.payload);
 
     const stub2 = createStub("sendRouteProposal", routeProposal2);
     const actual2 = await c.Invoke(stub2);
@@ -641,7 +631,7 @@ describe("Test Models Serialization", async () => {
   });
 
   it("invoke transaction with incorrect correct RouteProposal model should return error", async () => {
-    const routeProposal: IRouteProposal = {} as any;
+    const routeProposal: RouteProposal = {} as any;
 
     const stub = createStub("sendRouteProposal", routeProposal);
     const actual = await c.Invoke(stub);

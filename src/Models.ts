@@ -1,6 +1,17 @@
 export type KeyHexString = string;
 export type SignatureHexString = string;
 
+export type ModelPrefix = "rp" | "rt" | "ad" | "cr";
+
+export type ModelTypeMap = {
+  rp: RouteProposal;
+  rt: Route;
+  ad: Address;
+  cr: Courier;
+};
+
+export type TransportStep = "srcOutgoing" | "courierReceiving" | "courierDelivering" | "dstIncoming";
+
 export interface HashIdObject {
   hashId: string;
 }
@@ -21,8 +32,6 @@ export class Address implements HashIdObject, PublicKeyObject {
   publicKey!: KeyHexString;
 }
 
-export interface IAddress extends Address {}
-
 export class Courier implements HashIdObject, PublicKeyObject {
   hashId!: string; // hash of the remaining fields
   name!: string;
@@ -31,33 +40,25 @@ export class Courier implements HashIdObject, PublicKeyObject {
   publicKey!: KeyHexString;
 }
 
-export interface ICourier extends Courier {}
-
 export class Good implements UuidObject {
   uuid!: string;
   name!: string;
   barcode!: string;
 }
 
-export interface IGood extends Good {}
-
 export class Stop {
   address!: string; // Hash ID
   expectedArrivalTimestamp!: number;
   input!: { [goodUuid: string]: number };
   output!: { [goodUuid: string]: number };
-  next: ITransport | undefined;
+  next: Transport | undefined;
 }
-
-export interface IStop extends Stop {}
 
 export class Transport {
   courier!: string; // Hash ID
   info!: string;
-  destination!: IStop;
+  destination!: Stop;
 }
-
-export interface ITransport extends Transport {}
 
 export class CommitDetail {
   delta!: { [goodUuid: string]: number };
@@ -65,52 +66,31 @@ export class CommitDetail {
   timestamp!: number;
 }
 
-export interface ICommitDetail extends CommitDetail {}
-
 export class Commit {
-  detail!: ICommitDetail;
+  detail!: CommitDetail;
   signature!: SignatureHexString;
 }
-
-export interface ICommit extends Commit {}
 
 /**
  * Represents a point to point segment, a part of a route.
  */
 export class Segment {
-  srcOutgoing: ICommit | undefined;
-  courierReceiving: ICommit | undefined;
-  courierDelivering: ICommit | undefined;
-  dstIncoming: ICommit | undefined;
+  srcOutgoing: Commit | undefined;
+  courierReceiving: Commit | undefined;
+  courierDelivering: Commit | undefined;
+  dstIncoming: Commit | undefined;
 }
-
-export interface ISegment extends Segment {}
 
 export class Route implements UuidObject {
   uuid!: string;
-  goods!: { [goodUuid: string]: IGood };
-  addresses!: { [addressHashId: string]: IAddress };
-  couriers!: { [courierHashId: string]: ICourier };
-  source!: IStop;
-  commits!: ISegment[];
+  goods!: { [goodUuid: string]: Good };
+  addresses!: { [addressHashId: string]: Address };
+  couriers!: { [courierHashId: string]: Courier };
+  source!: Stop;
+  commits!: Segment[];
 }
-
-export interface IRoute extends Route {}
 
 export class RouteProposal {
-  route!: IRoute;
+  route!: Route;
   signatures!: { [partyHashId: string]: SignatureHexString }; // partyHashId is the hashId of the address.
 }
-
-export interface IRouteProposal extends RouteProposal {}
-
-export type ModelPrefix = "rp" | "rt" | "ad" | "cr";
-
-export type ModelTypeMap = {
-  rp: IRouteProposal;
-  rt: IRoute;
-  ad: IAddress;
-  cr: ICourier;
-};
-
-export type TransportStep = "srcOutgoing" | "courierReceiving" | "courierDelivering" | "dstIncoming";

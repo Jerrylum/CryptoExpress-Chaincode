@@ -6,15 +6,12 @@
 
 import { Context, Contract, Info, Transaction } from "fabric-contract-api";
 import {
-  IRouteProposal,
-  IAddress,
-  ICourier,
   ModelPrefix,
   ModelTypeMap,
   RouteProposal,
   Route,
-  IStop,
-  ITransport,
+  Stop,
+  Transport,
   Segment,
   SignatureHexString,
   KeyHexString,
@@ -110,7 +107,7 @@ export class DeliveryContract extends Contract {
 
     const route = routeProposal.route;
 
-    const entity: IAddress | ICourier | undefined =
+    const entity: Address | Courier | undefined =
       route.addresses[entityHashId] || route.couriers[entityHashId] || undefined;
 
     if (!entity) {
