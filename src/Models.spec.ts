@@ -4,7 +4,28 @@ import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { ChaincodeStub } from "fabric-shim";
 import sinon = require("sinon");
 import { expect } from "chai";
-import { IAddress, Address, ICourier, Courier, IGood, Good, IStop, Stop, ITransport, Transport, ICommitDetail, CommitDetail, ICommit, Commit, ISegment, Segment, IRoute, Route, IRouteProposal, RouteProposal } from "./Models";
+import {
+  IAddress,
+  Address,
+  ICourier,
+  Courier,
+  IGood,
+  Good,
+  IStop,
+  Stop,
+  ITransport,
+  Transport,
+  ICommitDetail,
+  CommitDetail,
+  ICommit,
+  Commit,
+  ISegment,
+  Segment,
+  IRoute,
+  Route,
+  IRouteProposal,
+  RouteProposal
+} from "./Models";
 import { serializers } from ".";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
@@ -176,7 +197,7 @@ describe("Test Models Serialization", async () => {
     );
   });
 
-  // 
+  //
 
   it("invoke transaction with correct Courier model should return correct result", async () => {
     const courier: ICourier = {
@@ -237,15 +258,17 @@ describe("Test Models Serialization", async () => {
     const actual = await c.Invoke(stub);
 
     expect(actual.payload).to.be.undefined;
-    expect(actual.message).to.equal(`Unable to validate parameter due to ["should have required property 'uuid'","should have required property 'name'","should have required property 'barcode'"]`);
+    expect(actual.message).to.equal(
+      `Unable to validate parameter due to ["should have required property 'uuid'","should have required property 'name'","should have required property 'barcode'"]`
+    );
   });
-  
+
   it("invoke transaction with correct Stop model should return correct result", async () => {
     const stop: IStop = {
       address: "address",
       arrivalDeltaTimestamp: 123,
-      input: { "goodUuid": 123 },
-      output: { "goodUuid": 123 },
+      input: { goodUuid: 123 },
+      output: { goodUuid: 123 },
       next: undefined
     };
     const expected = SimpleJSONSerializer.serialize(stop);
@@ -280,8 +303,8 @@ describe("Test Models Serialization", async () => {
       destination: {
         address: "address",
         arrivalDeltaTimestamp: 123,
-        input: { "goodUuid": 123 },
-        output: { "goodUuid": 123 },
+        input: { goodUuid: 123 },
+        output: { goodUuid: 123 },
         next: undefined
       }
     };
@@ -312,7 +335,7 @@ describe("Test Models Serialization", async () => {
 
   it("invoke transaction with correct CommitDetail model should return correct result", async () => {
     const commitDetail: ICommitDetail = {
-      delta: { "goodUuid": 123 },
+      delta: { goodUuid: 123 },
       info: "info",
       timestamp: 123
     };
@@ -344,7 +367,7 @@ describe("Test Models Serialization", async () => {
   it("invoke transaction with correct Commit model should return correct result", async () => {
     const commit: ICommit = {
       detail: {
-        delta: { "goodUuid": 123 },
+        delta: { goodUuid: 123 },
         info: "info",
         timestamp: 123
       },
@@ -379,7 +402,7 @@ describe("Test Models Serialization", async () => {
     const segment: ISegment = {
       srcOutgoing: {
         detail: {
-          delta: { "goodUuid": 123 },
+          delta: { goodUuid: 123 },
           info: "info",
           timestamp: 123
         },
@@ -387,7 +410,7 @@ describe("Test Models Serialization", async () => {
       },
       courierReceiving: {
         detail: {
-          delta: { "goodUuid": 456 },
+          delta: { goodUuid: 456 },
           info: "info",
           timestamp: 456
         },
@@ -395,7 +418,7 @@ describe("Test Models Serialization", async () => {
       },
       courierDelivering: {
         detail: {
-          delta: { "goodUuid": 789 },
+          delta: { goodUuid: 789 },
           info: "info",
           timestamp: 789
         },
@@ -403,7 +426,7 @@ describe("Test Models Serialization", async () => {
       },
       dstIncoming: {
         detail: {
-          delta: { "goodUuid": 123 },
+          delta: { goodUuid: 123 },
           info: "info",
           timestamp: 123
         },
@@ -435,21 +458,43 @@ describe("Test Models Serialization", async () => {
   it("invoke transaction with correct Route model should return correct result", async () => {
     const route: IRoute = {
       uuid: "uuid",
-      goods: { "goodUuid": 123 },
-      addresses: { "addressHashId": { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "publicKey" } },
-      couriers: { "courierHashId": { hashId: "hashId", name: "name", company: "company", telephone: "telephone", publicKey: "publicKey" } },
+      goods: {
+        goodUuid: {
+          uuid: "uuid",
+          name: "name",
+          barcode: "barcode"
+        }
+      },
+      addresses: {
+        addressHashId: {
+          hashId: "hashId",
+          line1: "line1",
+          line2: "line2",
+          recipient: "recipient",
+          publicKey: "publicKey"
+        }
+      },
+      couriers: {
+        courierHashId: {
+          hashId: "hashId",
+          name: "name",
+          company: "company",
+          telephone: "telephone",
+          publicKey: "publicKey"
+        }
+      },
       source: {
         address: "address",
         arrivalDeltaTimestamp: 123,
-        input: { "goodUuid": 123 },
-        output: { "goodUuid": 123 },
+        input: { goodUuid: 123 },
+        output: { goodUuid: 123 },
         next: undefined
       },
       commits: [
         {
           srcOutgoing: {
             detail: {
-              delta: { "goodUuid": 123 },
+              delta: { goodUuid: 123 },
               info: "info",
               timestamp: 123
             },
@@ -457,7 +502,7 @@ describe("Test Models Serialization", async () => {
           },
           courierReceiving: {
             detail: {
-              delta: { "goodUuid": 123 },
+              delta: { goodUuid: 123 },
               info: "info",
               timestamp: 123
             },
@@ -465,7 +510,7 @@ describe("Test Models Serialization", async () => {
           },
           courierDelivering: {
             detail: {
-              delta: { "goodUuid": 123 },
+              delta: { goodUuid: 123 },
               info: "info",
               timestamp: 123
             },
@@ -473,7 +518,7 @@ describe("Test Models Serialization", async () => {
           },
           dstIncoming: {
             detail: {
-              delta: { "goodUuid": 123 },
+              delta: { goodUuid: 123 },
               info: "info",
               timestamp: 123
             },
@@ -511,21 +556,43 @@ describe("Test Models Serialization", async () => {
     const routeProposal: IRouteProposal = {
       route: {
         uuid: "uuid",
-        goods: { "goodUuid": 123 },
-        addresses: { "addressHashId": { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "publicKey" } },
-        couriers: { "courierHashId": { hashId: "hashId", name: "name", company: "company", telephone: "telephone", publicKey: "publicKey" } },
+        goods: {
+          goodUuid: {
+            uuid: "uuid",
+            name: "name",
+            barcode: "barcode"
+          }
+        },
+        addresses: {
+          addressHashId: {
+            hashId: "hashId",
+            line1: "line1",
+            line2: "line2",
+            recipient: "recipient",
+            publicKey: "publicKey"
+          }
+        },
+        couriers: {
+          courierHashId: {
+            hashId: "hashId",
+            name: "name",
+            company: "company",
+            telephone: "telephone",
+            publicKey: "publicKey"
+          }
+        },
         source: {
           address: "address",
           arrivalDeltaTimestamp: 123,
-          input: { "goodUuid": 123 },
-          output: { "goodUuid": 123 },
+          input: { goodUuid: 123 },
+          output: { goodUuid: 123 },
           next: undefined
         },
         commits: [
           {
             srcOutgoing: {
               detail: {
-                delta: { "goodUuid": 123 },
+                delta: { goodUuid: 123 },
                 info: "info",
                 timestamp: 123
               },
@@ -533,7 +600,7 @@ describe("Test Models Serialization", async () => {
             },
             courierReceiving: {
               detail: {
-                delta: { "goodUuid": 123 },
+                delta: { goodUuid: 123 },
                 info: "info",
                 timestamp: 123
               },
@@ -541,7 +608,7 @@ describe("Test Models Serialization", async () => {
             },
             courierDelivering: {
               detail: {
-                delta: { "goodUuid": 123 },
+                delta: { goodUuid: 123 },
                 info: "info",
                 timestamp: 123
               },
@@ -549,7 +616,7 @@ describe("Test Models Serialization", async () => {
             },
             dstIncoming: {
               detail: {
-                delta: { "goodUuid": 123 },
+                delta: { goodUuid: 123 },
                 info: "info",
                 timestamp: 123
               },
@@ -558,7 +625,7 @@ describe("Test Models Serialization", async () => {
           }
         ]
       },
-      signatures: { "partyHashId": "KeyHexString" }
+      signatures: { partyHashId: "KeyHexString" }
     };
     const expected = SimpleJSONSerializer.serialize(routeProposal);
 

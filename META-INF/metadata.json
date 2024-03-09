@@ -165,7 +165,7 @@
           "goods": {
             "type": "object",
             "additionalProperties": {
-              "type": "number"
+              "$ref": "Good"
             }
           },
           "addresses": {

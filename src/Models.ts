@@ -75,7 +75,7 @@ export interface ISegment extends Segment {}
 
 export class Route {
   uuid!: string;
-  goods!: { [goodUuid: string]: number };
+  goods!: { [goodUuid: string]: IGood };
   addresses!: { [addressHashId: string]: IAddress };
   couriers!: { [courierHashId: string]: ICourier };
   source!: IStop;
@@ -90,3 +90,11 @@ export class RouteProposal {
 }
 
 export interface IRouteProposal extends RouteProposal {}
+
+export type ModelPrefix = "rp" | "ad" | "cr";
+
+export type ModelTypeMap = {
+  "rp": IRouteProposal;
+  "ad": IAddress;
+  "cr": ICourier;
+};
