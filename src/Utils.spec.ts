@@ -178,10 +178,10 @@ describe("Test Utils", async () => {
     const uuid2 = "550e8400e29b41d4a716446655440001";
 
     // create object like {uuid: uuid}
-    var objCollection: { [uuid: string]: UuidObject};
+    var objCollection: { [uuid: string]: UuidObject };
     objCollection = {};
-    objCollection[uuid] = {"uuid": uuid};
-    objCollection[uuid2] = {"uuid": uuid2};
+    objCollection[uuid] = { uuid: uuid };
+    objCollection[uuid2] = { uuid: uuid2 };
 
     expect(isValidUuidObjectCollection(objCollection)).to.be.true;
   });
@@ -192,10 +192,10 @@ describe("Test Utils", async () => {
     const uuid2 = "550e8400-e29b-41d4-a716-446655440000";
 
     // create object like {uuid: uuid}
-    var objCollection: { [uuid: string]: UuidObject};
+    var objCollection: { [uuid: string]: UuidObject };
     objCollection = {};
-    objCollection[uuid] = {"uuid": uuid};
-    objCollection[uuid2] = {"uuid": uuid2};
+    objCollection[uuid] = { uuid: uuid };
+    objCollection[uuid2] = { uuid: uuid2 };
 
     expect(isValidUuidObjectCollection(objCollection)).to.be.false;
   });
@@ -264,7 +264,7 @@ describe("Test Utils", async () => {
     var routeDetail: Stop = {
       address: "hashId",
       expectedArrivalTimestamp: 0,
-      input: {"uuid1": 1},
+      input: { uuid1: 1 },
       output: {},
       next: {
         courier: "hashId2",
@@ -288,7 +288,7 @@ describe("Test Utils", async () => {
       address: "hashId",
       expectedArrivalTimestamp: 0,
       input: {},
-      output: {"uuid1": 1},
+      output: { uuid1: 1 },
       next: {
         courier: "hashId2",
         info: "info",
@@ -310,8 +310,8 @@ describe("Test Utils", async () => {
     var routeDetail: Stop = {
       address: "hashId",
       expectedArrivalTimestamp: 0,
-      input: {"uuid1": 1},
-      output: {"uuid1": 1},
+      input: { uuid1: 1 },
+      output: { uuid1: 1 },
       next: {
         courier: "hashId",
         info: "info",
@@ -333,16 +333,16 @@ describe("Test Utils", async () => {
     var routeDetail: Stop = {
       address: "hashId",
       expectedArrivalTimestamp: 0,
-      input: {"uuid1": 1},
-      output: {"uuid1": 1},
+      input: { uuid1: 1 },
+      output: { uuid1: 1 },
       next: {
         courier: "hashId2",
         info: "info",
         destination: {
           address: "hashId3",
           expectedArrivalTimestamp: 10,
-          input: {"uuid1": 1},
-          output: {"uuid1": 1},
+          input: { uuid1: 1 },
+          output: { uuid1: 1 },
           next: undefined
         }
       }
@@ -352,7 +352,7 @@ describe("Test Utils", async () => {
   });
 
   it("isEmptySegment should validate the segment", async () => {
-    var s: Segment = { 
+    var s: Segment = {
       srcOutgoing: undefined,
       courierReceiving: undefined,
       courierDelivering: undefined,
@@ -362,7 +362,7 @@ describe("Test Utils", async () => {
   });
 
   it("isEmptySegment should validate the segment(2)", async () => {
-    var s: Segment = { 
+    var s: Segment = {
       srcOutgoing: {
         detail: {
           delta: {},
@@ -379,7 +379,7 @@ describe("Test Utils", async () => {
   });
 
   it("isEmptySegmentList should validate the segment list", async () => {
-    var s: Segment = { 
+    var s: Segment = {
       srcOutgoing: undefined,
       courierReceiving: undefined,
       courierDelivering: undefined,
@@ -389,7 +389,7 @@ describe("Test Utils", async () => {
   });
 
   it("isEmptySegmentList should validate the segment list(2)", async () => {
-    var s: Segment = { 
+    var s: Segment = {
       srcOutgoing: {
         detail: {
           delta: {},
@@ -405,14 +405,6 @@ describe("Test Utils", async () => {
     expect(isEmptySegmentList([s])).to.be.false;
   });
 
-  // export class Route implements UuidObject {
-  //   uuid!: string;
-  //   goods!: { [goodUuid: string]: Good };
-  //   addresses!: { [addressHashId: string]: Address };
-  //   couriers!: { [courierHashId: string]: Courier };
-  //   source!: Stop;
-  //   commits!: Segment[];
-  // }
   it("validateRoute should validate the route", async () => {
     // invalid route detail
     var route = {
@@ -451,26 +443,11 @@ describe("Test Utils", async () => {
     expect(() => validateRoute(route)).to.throw("The route proposal uuid is not valid.");
   });
 
-  // export class Route implements UuidObject {
-  //   uuid!: string;
-  //   goods!: { [goodUuid: string]: Good };
-  //   addresses!: { [addressHashId: string]: Address };
-  //   couriers!: { [courierHashId: string]: Courier };
-  //   source!: Stop;
-  //   commits!: Segment[];
-  // }
-
-  // export class Good implements UuidObject {
-  //   uuid!: string;
-  //   name!: string;
-  //   barcode!: string;
-  // }
-
   it("validateRoute should validate the route(3)", async () => {
     // invalid good uuid
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
-      goods: {"uuid": {uuid: "invalid uuid", name: "name", barcode: "barcode"}},
+      goods: { uuid: { uuid: "invalid uuid", name: "name", barcode: "barcode" } },
       addresses: {},
       couriers: {},
       source: {
@@ -486,19 +463,20 @@ describe("Test Utils", async () => {
     expect(() => validateRoute(route)).to.throw("One of the goods uuid is not valid.");
   });
 
-  // export class Address implements HashIdObject, PublicKeyObject {
-  //   hashId!: string; // hash of the remaining fields
-  //   line1!: string;
-  //   line2!: string;
-  //   recipient!: string;
-  //   publicKey!: KeyHexString;
-  // }
   it("validateRoute should validate the route(4)", async () => {
     // invalid address hashId
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
       goods: {},
-      addresses: {"hashId": {hashId: "invalid hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "publicKey"}},
+      addresses: {
+        hashId: {
+          hashId: "invalid hashId",
+          line1: "line1",
+          line2: "line2",
+          recipient: "recipient",
+          publicKey: "publicKey"
+        }
+      },
       couriers: {},
       source: {
         address: "hashId",
@@ -515,12 +493,18 @@ describe("Test Utils", async () => {
 
   it("validateRoute should validate the route(5)", async () => {
     // invalid address publicKey
-    var address: Address = {hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "invalid publicKey"};
+    var address: Address = {
+      hashId: "hashId",
+      line1: "line1",
+      line2: "line2",
+      recipient: "recipient",
+      publicKey: "invalid publicKey"
+    };
     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
       goods: {},
-      addresses: {[address.hashId]: address},
+      addresses: { [address.hashId]: address },
       couriers: {},
       source: {
         address: "hashId",
@@ -535,21 +519,21 @@ describe("Test Utils", async () => {
     expect(() => validateRoute(route)).to.throw("One of the address public key is not valid.");
   });
 
-
-  // export class Courier implements HashIdObject, PublicKeyObject {
-  //   hashId!: string; // hash of the remaining fields
-  //   name!: string;
-  //   company!: string;
-  //   telephone!: string;
-  //   publicKey!: KeyHexString;
-  // }
   it("validateRoute should validate the route(6)", async () => {
     // invalid courier hashId
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
       goods: {},
       addresses: {},
-      couriers: {"hashId": {hashId: "invalid hashId", name: "name", company: "company", telephone: "telephone", publicKey: "publicKey"}},
+      couriers: {
+        hashId: {
+          hashId: "invalid hashId",
+          name: "name",
+          company: "company",
+          telephone: "telephone",
+          publicKey: "publicKey"
+        }
+      },
       source: {
         address: "hashId",
         expectedArrivalTimestamp: 0,
@@ -565,13 +549,19 @@ describe("Test Utils", async () => {
 
   it("validateRoute should validate the route(7)", async () => {
     // invalid courier publicKey
-    var courier: Courier = {hashId: "hashId", name: "name", company: "company", telephone: "telephone", publicKey: "invalid publicKey"};
+    var courier: Courier = {
+      hashId: "hashId",
+      name: "name",
+      company: "company",
+      telephone: "telephone",
+      publicKey: "invalid publicKey"
+    };
     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
       goods: {},
       addresses: {},
-      couriers: {[courier.hashId]: courier},
+      couriers: { [courier.hashId]: courier },
       source: {
         address: "hashId",
         expectedArrivalTimestamp: 0,
@@ -585,12 +575,18 @@ describe("Test Utils", async () => {
     expect(() => validateRoute(route)).to.throw("One of the courier public key is not valid.");
   });
 
-  it ("validateRoute should validate the route(8)", async () => {
+  it("validateRoute should validate the route(8)", async () => {
     // invalid number of segment
     var pk = exportPublicKey(generateKeyPair().publicKey);
-    var address: Address = {hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk};
+    var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-    var courier: Courier = {hashId: "hashId2", name: "name", company: "company", telephone: "telephone", publicKey: pk};
+    var courier: Courier = {
+      hashId: "hashId2",
+      name: "name",
+      company: "company",
+      telephone: "telephone",
+      publicKey: pk
+    };
     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
 
     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
@@ -598,39 +594,27 @@ describe("Test Utils", async () => {
     var routeDetail: Stop = {
       address: address.hashId,
       expectedArrivalTimestamp: 0,
-      input: {[testUuid]: 1},
-      output: {[testUuid]: 1},
+      input: { [testUuid]: 1 },
+      output: { [testUuid]: 1 },
       next: {
         courier: courier.hashId,
         info: "info",
         destination: {
           address: address.hashId,
           expectedArrivalTimestamp: 10,
-          input: {[testUuid]: 1},
-          output: {[testUuid]: 1},
+          input: { [testUuid]: 1 },
+          output: { [testUuid]: 1 },
           next: undefined
         }
       }
     };
 
-    //route should fulfill "number of transport = number of segment object", 2add+1~2courier -> each of them 4 commit -> 1 segment
-
-    // export class CommitDetail {
-    //   delta!: { [goodUuid: string]: number };
-    //   info!: string;
-    //   timestamp!: number;
-    // }
-    
-    // export class Commit {
-    //   detail!: CommitDetail;
-    //   signature!: SignatureHexString;
-    // }
-
+    // route should fulfill "number of transport = number of segment object", 2add+1~2courier -> each of them 4 commit -> 1 segment
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
-      goods: {[testUuid]: {uuid: testUuid, name: "name", barcode: "barcode"}},
-      addresses: {[address.hashId]: address},
-      couriers: {[courier.hashId]: courier},
+      goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
+      addresses: { [address.hashId]: address },
+      couriers: { [courier.hashId]: courier },
       source: routeDetail,
       commits: [] // 4 commit for 1 segment, 2 address + 1~2 courier
     };
@@ -638,12 +622,18 @@ describe("Test Utils", async () => {
     expect(() => validateRoute(route)).to.be.throw("The number of segments does not match the number of transport.");
   });
 
-  it ("validateRoute should validate the route(9)", async () => {
+  it("validateRoute should validate the route(9)", async () => {
     // valid route
     var pk = exportPublicKey(generateKeyPair().publicKey);
-    var address: Address = {hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk};
+    var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-    var courier: Courier = {hashId: "hashId2", name: "name", company: "company", telephone: "telephone", publicKey: pk};
+    var courier: Courier = {
+      hashId: "hashId2",
+      name: "name",
+      company: "company",
+      telephone: "telephone",
+      publicKey: pk
+    };
     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
 
     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
@@ -651,25 +641,25 @@ describe("Test Utils", async () => {
     var routeDetail: Stop = {
       address: address.hashId,
       expectedArrivalTimestamp: 0,
-      input: {[testUuid]: 1},
-      output: {[testUuid]: 1},
+      input: { [testUuid]: 1 },
+      output: { [testUuid]: 1 },
       next: {
         courier: courier.hashId,
         info: "info",
         destination: {
           address: address.hashId,
           expectedArrivalTimestamp: 10,
-          input: {[testUuid]: 1},
-          output: {[testUuid]: 1},
+          input: { [testUuid]: 1 },
+          output: { [testUuid]: 1 },
           next: undefined
         }
       }
     };
 
-    //route should fulfill "number of transport = number of segment object", 2add+1~2courier -> each of them 4 commit -> 1 segment
+    // route should fulfill "number of transport = number of segment object", 2add+1~2courier -> each of them 4 commit -> 1 segment
     var commit = {
       detail: {
-        delta: {[testUuid]: 1},
+        delta: { [testUuid]: 1 },
         info: "info",
         timestamp: 0
       },
@@ -685,9 +675,9 @@ describe("Test Utils", async () => {
 
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
-      goods: {[testUuid]: {uuid: testUuid, name: "name", barcode: "barcode"}},
-      addresses: {[address.hashId]: address},
-      couriers: {[courier.hashId]: courier},
+      goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
+      addresses: { [address.hashId]: address },
+      couriers: { [courier.hashId]: courier },
       source: routeDetail,
       commits: [segment]
     };
@@ -695,10 +685,10 @@ describe("Test Utils", async () => {
     expect(validateRoute(route)).to.be.true;
   });
 
-  it ("getCommitTimeline should get the commit timeline", async () => {
+  it("getCommitTimeline should get the commit timeline", async () => {
     var commit = {
       detail: {
-        delta: {"uuid": 1},
+        delta: { uuid: 1 },
         info: "info",
         timestamp: 0
       },
@@ -714,22 +704,26 @@ describe("Test Utils", async () => {
 
     var route = {
       uuid: "550e8400e29b41d4a716446655440000",
-      goods: {"uuid": {uuid: "uuid", name: "name", barcode: "barcode"}},
-      addresses: {"hashId": {hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "publicKey"}},
-      couriers: {"hashId": {hashId: "hashId", name: "name", company: "company", telephone: "telephone", publicKey: "publicKey"}},
+      goods: { uuid: { uuid: "uuid", name: "name", barcode: "barcode" } },
+      addresses: {
+        hashId: { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: "publicKey" }
+      },
+      couriers: {
+        hashId: { hashId: "hashId", name: "name", company: "company", telephone: "telephone", publicKey: "publicKey" }
+      },
       source: {
         address: "hashId",
         expectedArrivalTimestamp: 0,
-        input: {"uuid": 1},
-        output: {"uuid": 1},
+        input: { uuid: 1 },
+        output: { uuid: 1 },
         next: {
           courier: "hashId",
           info: "info",
           destination: {
             address: "hashId",
             expectedArrivalTimestamp: 10,
-            input: {"uuid": 1},
-            output: {"uuid": 1},
+            input: { uuid: 1 },
+            output: { uuid: 1 },
             next: undefined
           }
         }
@@ -739,5 +733,4 @@ describe("Test Utils", async () => {
 
     expect(getCommitTimeline(route).length).to.be.equal(4);
   });
-
 });
