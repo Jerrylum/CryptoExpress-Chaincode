@@ -18,7 +18,10 @@ import {
   Route,
   SignatureHexString,
   Commit,
-  UuidObject
+  UuidObject,
+  Address,
+  TransportStep,
+  Courier
 } from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
@@ -94,9 +97,11 @@ export function isValidRouteDetail(
       return false;
     }
 
+    // The stop impossible to be undefined, since the JSON schema has been validated, the case a object set of 1 stop + 1 transport will be slashed.
     stop = transport.destination;
     transport = stop.next;
   }
+  return true;
 }
 
 export function objectToSha256Hash(obj: any): string {
@@ -168,12 +173,6 @@ export function validateRoute(route: Route): boolean {
   }
 
   return true;
-}
-
-export class CommitTimeline {
-  constructor(public route: Route) {
-    // TODO
-  }
 }
 
 export function getCommitTimeline(route: Route): Commit[] {
