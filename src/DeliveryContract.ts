@@ -139,6 +139,10 @@ export class DeliveryContract extends Contract {
       throw new Error(`The entity ${entityHashId} does not exist in the route.`);
     }
 
+    if (routeProposal.signatures[entityHashId] !== undefined) {
+      throw new Error(`The entity ${entityHashId} has already signed the route proposal.`);
+    }
+
     const publicKey = entity.publicKey;
 
     if (!verifyObject(route, signature, publicKey)) {

@@ -4,7 +4,7 @@ import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { DeliveryContract } from "./DeliveryContract";
 import { serializers } from ".";
-import { Address, Courier, HashIdObject, RouteProposal, Stop } from "./Models";
+import { Address, Courier, HashIdObject, Route, RouteProposal, Stop } from "./Models";
 import {
   exportPrivateKey,
   exportPublicKey,
@@ -167,7 +167,34 @@ describe("DeliveryContract", () => {
 
   const c = new ChaincodeFromContract([DeliveryContract], serializers, metadata, "title", "version");
 
-  it("CRUD Courier", async () => {
+  it("CRD Address: releaseAddress & removeAddress", async () => {
+    const rt = new TestRuntime();
+
+    const address: Address = createHashIdObject({
+      line1: "my line1",
+      line2: "my line2",
+      recipient: "my recipient",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+
+    // Create
+    const result = await c.Invoke(rt.createStub("releaseAddress", address));
+    expect(result.status).to.equal(200);
+
+    // Read
+    const result2 = await c.Invoke(rt.createStub("getData", "ad", address.hashId));
+    expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize(address));
+
+    // Delete
+    const result5 = await c.Invoke(rt.createStub("removeAddress", address.hashId));
+    expect(result5.status).to.equal(200);
+
+    // Read
+    const result6 = await c.Invoke(rt.createStub("getData", "ad", address.hashId));
+    expect(result6.payload).to.be.empty;
+  });
+
+  it("CRD Courier: releaseCourier & removeCourier", async () => {
     const rt = new TestRuntime();
 
     const courier: Courier = createHashIdObject({
@@ -179,443 +206,244 @@ describe("DeliveryContract", () => {
 
     // Create
     const result = await c.Invoke(rt.createStub("releaseCourier", courier));
-    console.log(result);
-
     expect(result.status).to.equal(200);
 
     // Read
-    // const result2 = await c.Invoke(rt.createStub("getData", "cr", courier.hashId));
-    // expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize(courier));
+    const result2 = await c.Invoke(rt.createStub("getData", "cr", courier.hashId));
+    expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize(courier));
+
+    // Delete
+    const result5 = await c.Invoke(rt.createStub("removeCourier", courier.hashId));
+    expect(result5.status).to.equal(200);
+
+    // Read
+    const result6 = await c.Invoke(rt.createStub("getData", "cr", courier.hashId));
+    expect(result6.payload).to.be.empty;
   });
+
+  it("CRUD Route Proposal: createRouteProposal", async () => {
+    const rt = new TestRuntime();
+
+    const uuid = "550e8400e29b41d4a716446655440000";
+    const good1 = { uuid: "uuid000000000001", name: "name1", barcode: "barcode1" };
+    const good2 = { uuid: "uuid000000000002", name: "name2", barcode: "barcode2" };
+
+    const addrA: Address = createHashIdObject({
+      line1: "my line1 A",
+      line2: "my line2 A",
+      recipient: "my recipient A",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+
+    const addrB: Address = createHashIdObject({
+      line1: "my line1 B",
+      line2: "my line2 B",
+      recipient: "my recipient B",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+
+    const courier: Courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+
+    const route = {
+      uuid,
+      goods: { [good1.uuid]: good1, [good2.uuid]: good2 },
+      addresses: { [addrA.hashId]: addrA, [addrB.hashId]: addrB },
+      couriers: { [courier.hashId]: courier },
+      source: {
+        address: addrA.hashId,
+        expectedArrivalTimestamp: 0,
+        input: {},
+        output: { [good1.uuid]: 1, [good2.uuid]: 1 },
+        next: {
+          courier: courier.hashId,
+          info: "info",
+          destination: {
+            address: addrB.hashId,
+            expectedArrivalTimestamp: 10,
+            input: { [good1.uuid]: 1, [good2.uuid]: 1 },
+            output: {}
+            // next: undefined
+          }
+        }
+      },
+      commits: [{}]
+    } as Route;
+
+    // Create
+    const result = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result.status).to.equal(200);
+
+    // Read
+    const result2 = await c.Invoke(rt.createStub("getData", "rp", uuid));
+    expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize({ route, signatures: {} }));
+
+    // Update
+    good2.name = "name2 - new";
+
+    const result3 = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result3.status).to.equal(200);
+
+    // Read
+    const result4 = await c.Invoke(rt.createStub("getData", "rp", uuid));
+    expect(result4.payload).to.deep.equal(SimpleJSONSerializer.serialize({ route, signatures: {} }));
+
+    // Delete
+    const result5 = await c.Invoke(rt.createStub("removeRouteProposal", uuid));
+    expect(result5.status).to.equal(200);
+
+    // Read
+    const result6 = await c.Invoke(rt.createStub("getData", "rp", uuid));
+    expect(result6.payload).to.be.empty;
+
+    // Create fail
+    route.commits[0].srcOutgoing = {
+      detail: {
+        delta: { [good1.uuid]: 1 },
+        info: "info",
+        timestamp: 0
+      },
+      signature: "signature"
+    };
+
+    const result7 = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result7.message).to.equal("One of the commit is not empty.");
+
+    // validateRoute handled all fail cases. See Utils.spec.ts
+  });
+
+  it("RouteProposal life cycle: createRouteProposal -> signRouteProposal -> submitRouteProposal", async () => {
+    const rt = new TestRuntime();
+
+    const uuid = "550e8400e29b41d4a716446655440000";
+    const good1 = { uuid: "uuid000000000001", name: "name1", barcode: "barcode1" };
+    const good2 = { uuid: "uuid000000000002", name: "name2", barcode: "barcode2" };
+
+    const keyPairA = generateKeyPair();
+    const addrA: Address = createHashIdObject({
+      line1: "my line1 A",
+      line2: "my line2 A",
+      recipient: "my recipient A",
+      publicKey: exportPublicKey(keyPairA.publicKey)
+    });
+
+    const keyPairB = generateKeyPair();
+    const addrB: Address = createHashIdObject({
+      line1: "my line1 B",
+      line2: "my line2 B",
+      recipient: "my recipient B",
+      publicKey: exportPublicKey(keyPairB.publicKey)
+    });
+
+    const keyPairC = generateKeyPair();
+    const courier: Courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: exportPublicKey(keyPairC.publicKey)
+    });
+
+    const route = {
+      uuid,
+      goods: { [good1.uuid]: good1, [good2.uuid]: good2 },
+      addresses: { [addrA.hashId]: addrA, [addrB.hashId]: addrB },
+      couriers: { [courier.hashId]: courier },
+      source: {
+        address: addrA.hashId,
+        expectedArrivalTimestamp: 0,
+        input: {},
+        output: { [good1.uuid]: 1, [good2.uuid]: 1 },
+        next: {
+          courier: courier.hashId,
+          info: "info",
+          destination: {
+            address: addrB.hashId,
+            expectedArrivalTimestamp: 10,
+            input: { [good1.uuid]: 1, [good2.uuid]: 1 },
+            output: {}
+            // next: undefined
+          }
+        }
+      },
+      commits: [{}]
+    } as Route;
+
+    // Create
+    const result = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result.status).to.equal(200);
+
+    const proposal: RouteProposal = SimpleJSONSerializer.deserialize(result.payload);
+    expect(proposal.route).to.deep.equal(route);
+
+    // Sign
+    const signA = signObject(route, exportPrivateKey(keyPairA.privateKey));
+    const result2 = await c.Invoke(rt.createStub("signRouteProposal", uuid, addrA.hashId, signA));
+    expect(result2.status).to.equal(200);
+
+    proposal.signatures[addrA.hashId] = signA;
+    const proposal2: RouteProposal = SimpleJSONSerializer.deserialize(result2.payload);
+    expect(proposal2).to.deep.equal(proposal);
+
+    // Clear the signature
+    good2.name = "name2 - new";
+    const result3 = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result3.status).to.equal(200);
+
+    const proposal3: RouteProposal = SimpleJSONSerializer.deserialize(result3.payload);
+    expect(proposal3.signatures).to.be.empty;
+
+    // Sign 2 times
+    const signA2 = signObject(route, exportPrivateKey(keyPairA.privateKey));
+    const result4 = await c.Invoke(rt.createStub("signRouteProposal", uuid, addrA.hashId, signA2));
+    expect(result4.status).to.equal(200);
+
+    // Sign 2 times
+    const signB = signObject(route, exportPrivateKey(keyPairB.privateKey));
+    const result5 = await c.Invoke(rt.createStub("signRouteProposal", uuid, addrB.hashId, signB));
+    expect(result5.status).to.equal(200);
+
+    const signB2 = signObject(route, exportPrivateKey(keyPairB.privateKey));
+    const result6 = await c.Invoke(rt.createStub("signRouteProposal", uuid, addrB.hashId, signB2));
+    expect(result6.message).to.equal(`The entity ${addrB.hashId} has already signed the route proposal.`);
+
+    // Submit fail
+    const result7 = await c.Invoke(rt.createStub("submitRouteProposal", uuid));
+    expect(result7.message).to.equal(`The route proposal is not fully signed.`);
+
+    // Sign
+    const signC = signObject(route, exportPrivateKey(keyPairC.privateKey));
+    const result8 = await c.Invoke(rt.createStub("signRouteProposal", uuid, courier.hashId, signC));
+    expect(result8.status).to.equal(200);
+
+    // Submit
+    const result9 = await c.Invoke(rt.createStub("submitRouteProposal", uuid));
+    expect(result9.status).to.equal(200);
+
+    // Read
+    const result10 = await c.Invoke(rt.createStub("getData", "rp", uuid));
+    expect(result10.payload).to.be.empty;
+
+    // Read
+    const result11 = await c.Invoke(rt.createStub("getData", "rt", uuid));
+    expect(result11.payload).to.deep.equal(SimpleJSONSerializer.serialize(route));
+
+    // Sign non-exist route
+    const signC2 = signObject(route, exportPrivateKey(keyPairC.privateKey));
+    const result12 = await c.Invoke(rt.createStub("signRouteProposal", "non-exist", courier.hashId, signC2));
+    expect(result12.message).to.equal(`The route proposal non-exist does not exist.`);
+
+    // Submit non-exist route
+    const result13 = await c.Invoke(rt.createStub("submitRouteProposal", "non-exist"));
+    expect(result13.message).to.equal(`The route proposal non-exist does not exist.`);
+  });
+
+  it("Route life cycle: commitProgress", async () => {});
+
+  it("getData should return expected data", async () => {});
+
+  it("getAllData should returns all data", async () => {});
 });
-
-// describe("DeliveryContract", () => {
-//   // get package.json root path
-//   const rootPath = process.cwd();
-//   // read text from META-INF/metadata.json
-//   const metadata = require(`${rootPath}/META-INF/metadata.json`);
-//   const c = new ChaincodeFromContract([DeliveryContract], serializers, metadata, "title", "version");
-
-//   // test the releaseCourier
-//   it("release courier", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var courier: Courier = {
-//       hashId: "",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-//     const stub = createStub("releaseCourier", courier);
-//     expect(stub.db.size).to.equal(0);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-//   });
-
-//   it("release courier(2)", async () => {
-//     // invalid courier with invalid hashId
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var courier: Courier = {
-//       hashId: "",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     const stub = createStub("releaseCourier", courier);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The courier hashId is not valid.");
-//   });
-
-//   it("release courier(3)", async () => {
-//     // invalid courier with invalid publicKey
-//     var courier: Courier = {
-//       hashId: "",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: "publicKey"
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-//     const stub = createStub("releaseCourier", courier);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The public key is not valid.");
-//   });
-
-//   it("remove courier", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var courier: Courier = {
-//       hashId: "",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-//     var stub = createStub("removeCourier", courier.hashId);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The courier " + courier.hashId + " does not exist.");
-
-//     stub = createStub("releaseCourier", courier);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-
-//     stub = updateStub(stub, "removeCourier", courier.hashId);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(0);
-//   });
-
-//   // export class Address implements HashIdObject, PublicKeyObject {
-//   //     hashId!: string; // hash of the remaining fields
-//   //     line1!: string;
-//   //     line2!: string;
-//   //     recipient!: string;
-//   //     publicKey!: KeyHexString;
-//   //   }
-
-//   it("release address", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address = {
-//       hashId: "",
-//       line1: "line1",
-//       line2: "line2",
-//       recipient: "recipient",
-//       publicKey: pk
-//     };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     const stub = createStub("releaseAddress", address);
-//     expect(stub.db.size).to.equal(0);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-//   });
-
-//   it("release address(2)", async () => {
-//     // invalid address with invalid hashId
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address = {
-//       hashId: "",
-//       line1: "line1",
-//       line2: "line2",
-//       recipient: "recipient",
-//       publicKey: pk
-//     };
-//     const stub = createStub("releaseAddress", address);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The address hashId is not valid.");
-//   });
-
-//   it("release address(3)", async () => {
-//     // invalid address with invalid publicKey
-//     var address = {
-//       hashId: "",
-//       line1: "line1",
-//       line2: "line2",
-//       recipient: "recipient",
-//       publicKey: "publicKey"
-//     };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     const stub = createStub("releaseAddress", address);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The public key is not valid.");
-//   });
-
-//   it("remove address", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address = {
-//       hashId: "",
-//       line1: "line1",
-//       line2: "line2",
-//       recipient: "recipient",
-//       publicKey: pk
-//     };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     var stub = createStub("removeAddress", address.hashId);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The address " + address.hashId + " does not exist.");
-
-//     stub = createStub("releaseAddress", address);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-
-//     stub = updateStub(stub, "removeAddress", address.hashId);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(0);
-//   });
-
-//   it("create route proposal", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     var courier: Courier = {
-//       hashId: "hashId2",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-
-//     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
-//     var testUuid = "550e8400e29b41d4a716446655440000";
-//     var routeDetail: Stop = {
-//       address: address.hashId,
-//       expectedArrivalTimestamp: 0,
-//       input: { [testUuid]: 1 },
-//       output: { [testUuid]: 1 },
-//       next: {
-//         courier: courier.hashId,
-//         info: "info",
-//         destination: {
-//           address: address.hashId,
-//           expectedArrivalTimestamp: 10,
-//           input: { [testUuid]: 1 },
-//           output: { [testUuid]: 1 },
-//           next: undefined
-//         }
-//       }
-//     };
-
-//     //route should fulfill "number of transport = number of segment object", 2add+1~2courier -> each of them 4 commit -> 1 segment
-//     var commit = {
-//       detail: {
-//         delta: { [testUuid]: 1 },
-//         info: "info",
-//         timestamp: 0
-//       },
-//       signature: "signature"
-//     };
-
-//     var segment = {
-//       srcOutgoing: commit,
-//       courierReceiving: commit,
-//       courierDelivering: commit,
-//       dstIncoming: commit
-//     };
-
-//     var route = {
-//       uuid: "550e8400e29b41d4a716446655440000",
-//       goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
-//       addresses: { [address.hashId]: address },
-//       couriers: { [courier.hashId]: courier },
-//       source: routeDetail,
-//       commits: [segment]
-//     };
-//     const stub = createStub("createRouteProposal", route);
-
-//     const result = await c.Invoke(stub);
-
-//     expect(result.message).to.equal("One of the commit is not empty.");
-//   });
-
-//   it("create route proposal(2)", async () => {
-//     // valid route proposal
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     var courier: Courier = {
-//       hashId: "hashId2",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-
-//     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
-//     var testUuid = "550e8400e29b41d4a716446655440000";
-//     var routeDetail: Stop = {
-//       address: address.hashId,
-//       expectedArrivalTimestamp: 0,
-//       input: { [testUuid]: 1 },
-//       output: { [testUuid]: 1 },
-//       next: {
-//         courier: courier.hashId,
-//         info: "info",
-//         destination: {
-//           address: address.hashId,
-//           expectedArrivalTimestamp: 10,
-//           input: { [testUuid]: 1 },
-//           output: { [testUuid]: 1 },
-//           next: undefined
-//         }
-//       }
-//     };
-
-//     var segment = {
-//       srcOutgoing: undefined,
-//       courierReceiving: undefined,
-//       courierDelivering: undefined,
-//       dstIncoming: undefined
-//     };
-
-//     var route = {
-//       uuid: "550e8400e29b41d4a716446655440000",
-//       goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
-//       addresses: { [address.hashId]: address },
-//       couriers: { [courier.hashId]: courier },
-//       source: routeDetail,
-//       commits: [segment]
-//     };
-//     const stub = createStub("createRouteProposal", route);
-//     expect(stub.db.size).to.equal(0);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-//   });
-
-//   it("remove route proposal", async () => {
-//     var pk = exportPublicKey(generateKeyPair().publicKey);
-//     var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     var courier: Courier = {
-//       hashId: "hashId2",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-
-//     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
-//     var testUuid = "550e8400e29b41d4a716446655440000";
-//     var routeDetail: Stop = {
-//       address: address.hashId,
-//       expectedArrivalTimestamp: 0,
-//       input: { [testUuid]: 1 },
-//       output: { [testUuid]: 1 },
-//       next: {
-//         courier: courier.hashId,
-//         info: "info",
-//         destination: {
-//           address: address.hashId,
-//           expectedArrivalTimestamp: 10,
-//           input: { [testUuid]: 1 },
-//           output: { [testUuid]: 1 },
-//           next: undefined
-//         }
-//       }
-//     };
-
-//     var segment = {
-//       srcOutgoing: undefined,
-//       courierReceiving: undefined,
-//       courierDelivering: undefined,
-//       dstIncoming: undefined
-//     };
-
-//     var route = {
-//       uuid: "550e8400e29b41d4a716446655440000",
-//       goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
-//       addresses: { [address.hashId]: address },
-//       couriers: { [courier.hashId]: courier },
-//       source: routeDetail,
-//       commits: [segment]
-//     };
-//     var stub = createStub("removeRouteProposal", route.uuid);
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The route proposal " + route.uuid + " does not exist.");
-
-//     stub = updateStub(stub, "createRouteProposal", route);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-
-//     stub = updateStub(stub, "removeRouteProposal", route.uuid);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(0);
-//   });
-
-//   it("sign route proposal", async () => {
-//     // var Ppk = exportPublicKey(generateKeyPair().publicKey);
-//     var keys = generateKeyPair();
-//     var pk = exportPublicKey(keys.publicKey);
-//     var sk = exportPrivateKey(keys.privateKey);
-//     var address: Address = { hashId: "hashId", line1: "line1", line2: "line2", recipient: "recipient", publicKey: pk };
-//     address.hashId = objectToSha256Hash(omitProperty(address, "hashId"));
-//     var courier: Courier = {
-//       hashId: "hashId2",
-//       name: "name",
-//       company: "company",
-//       telephone: "telephone",
-//       publicKey: pk
-//     };
-//     courier.hashId = objectToSha256Hash(omitProperty(courier, "hashId"));
-
-//     // uuid need to satisfy target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
-//     var testUuid = "550e8400e29b41d4a716446655440000";
-//     var routeDetail: Stop = {
-//       address: address.hashId,
-//       expectedArrivalTimestamp: 0,
-//       input: { [testUuid]: 1 },
-//       output: { [testUuid]: 1 },
-//       next: {
-//         courier: courier.hashId,
-//         info: "info",
-//         destination: {
-//           address: address.hashId,
-//           expectedArrivalTimestamp: 10,
-//           input: { [testUuid]: 1 },
-//           output: { [testUuid]: 1 },
-//           next: undefined
-//         }
-//       }
-//     };
-
-//     var segment = {
-//       srcOutgoing: undefined,
-//       courierReceiving: undefined,
-//       courierDelivering: undefined,
-//       dstIncoming: undefined
-//     };
-
-//     var route = {
-//       uuid: "550e8400e29b41d4a716446655440000",
-//       goods: { [testUuid]: { uuid: testUuid, name: "name", barcode: "barcode" } },
-//       addresses: { [address.hashId]: address },
-//       couriers: { [courier.hashId]: courier },
-//       source: routeDetail,
-//       commits: [segment]
-//     };
-//     var stub = createStub("signRouteProposal", route.uuid, address.hashId, signObject(route, sk));
-//     const actual = await c.Invoke(stub);
-//     expect(actual.message).to.equal("The route proposal " + route.uuid + " does not exist.");
-
-//     stub = updateStub(stub, "createRouteProposal", route);
-//     await c.Invoke(stub);
-//     expect(stub.db.size).to.equal(1);
-
-//     // // create a irrelevant address
-//     var address2: Address = {
-//       hashId: "hashId2",
-//       line1: "line3",
-//       line2: "line4",
-//       recipient: "recipient2",
-//       publicKey: pk
-//     };
-//     address2.hashId = objectToSha256Hash(omitProperty(address2, "hashId"));
-//     stub = updateStub(stub, "signRouteProposal", route.uuid);
-
-//     // sign route proposal with irrelevant address
-//     stub = updateStub(stub, "signRouteProposal", route.uuid, address2.hashId, signObject(route, sk));
-//     const actual2 = await c.Invoke(stub);
-//     //The entity ${entityHashId} does not exist in the route.
-//     expect(actual2.message).to.equal("The entity " + address2.hashId + " does not exist in the route.");
-
-//     //create another pair of keys, case that a approved address want to sign with malicious key
-//     var keys2 = generateKeyPair();
-//     var sk2 = exportPrivateKey(keys2.privateKey);
-//     stub = updateStub(stub, "signRouteProposal", route.uuid, address.hashId, signObject(route, sk2));
-//     const actual3 = await c.Invoke(stub);
-//     expect(actual3.message).to.equal("The signature is not valid.");
-
-//     //sign with correct key
-//     const signObj = signObject(route, sk);
-//     stub = updateStub(stub, "signRouteProposal", route.uuid, address.hashId, signObj);
-//     await c.Invoke(stub);
-
-//     const signedRouteProposal = SimpleJSONSerializer.deserialize(
-//       await stub.getState("rp-" + route.uuid.toString())
-//     ) as RouteProposal;
-//     expect(Object.keys(signedRouteProposal.signatures).length).to.equal(1);
-//     expect(JSON.stringify(signedRouteProposal.signatures[address.hashId])).to.equal(JSON.stringify(signObj));
-//   });
-// });
