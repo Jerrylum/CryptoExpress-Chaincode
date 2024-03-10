@@ -11,7 +11,8 @@ describe("Test SimpleJSONSerializer", async () => {
       123.456,
       true,
       false,
-      null, // Serializer.fromBuffer will not handle null
+      null,
+      undefined,
       { prop: "value" },
       ["array"],
       { nested: { prop: "value" } }
@@ -19,9 +20,13 @@ describe("Test SimpleJSONSerializer", async () => {
 
     for (const thing of everything) {
       const buffer = serializer.toBuffer(thing);
-      const result = serializer.fromBuffer(buffer);
+      if (buffer === undefined) {
+        expect(thing).to.be.undefined;
+      } else {
+        const result = serializer.fromBuffer(buffer);
 
-      expect(result.value).to.deep.equal(thing);
+        expect(result.value).to.deep.equal(thing);
+      }
     }
   });
 
@@ -29,7 +34,7 @@ describe("Test SimpleJSONSerializer", async () => {
     const serializer = new SimpleJSONSerializer();
 
     const buffer = serializer.toBuffer(NaN);
-    const result = serializer.fromBuffer(buffer);
+    const result = serializer.fromBuffer(buffer!);
 
     expect(result.value).to.deep.equal(null);
   });

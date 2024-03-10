@@ -104,7 +104,7 @@ export function isValidRouteDetail(
   return true;
 }
 
-export function objectToSha256Hash(obj: any): string {
+export function objectToSha256Hash(obj: {} | null): string {
   const hash = createHash("sha256");
   hash.update(SimpleJSONSerializer.serialize(obj));
   return hash.digest("hex");
@@ -196,14 +196,14 @@ export function getCommitTimeline(route: Route): Commit[] {
   return commits;
 }
 
-export function signObject(target: any, privateKey: KeyHexString): SignatureHexString {
+export function signObject(target: {} | null, privateKey: KeyHexString): SignatureHexString {
   const sign = createSign("SHA256");
   sign.update(SimpleJSONSerializer.serialize(target));
   sign.end();
   return sign.sign(importPrivateKey(privateKey), "hex");
 }
 
-export function verifyObject(target: any, signature: SignatureHexString, publicKey: KeyHexString): boolean {
+export function verifyObject(target: {} | null, signature: SignatureHexString, publicKey: KeyHexString): boolean {
   const verify = createVerify("SHA256");
   verify.update(SimpleJSONSerializer.serialize(target));
   verify.end();
