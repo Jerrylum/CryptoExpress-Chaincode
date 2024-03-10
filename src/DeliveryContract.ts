@@ -10,37 +10,34 @@ import {
   ModelTypeMap,
   RouteProposal,
   Route,
-  Stop,
-  Transport,
-  Segment,
   SignatureHexString,
-  KeyHexString,
   Address,
-  HashIdObject,
-  PublicKeyObject,
   Courier,
   Commit,
   TransportStep
 } from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
-import { validateRoute, isEmptySegmentList, verifyObject, isValidHashIdObject, isValidPublicKey, getCommitTimeline } from "./Utils";
+import {
+  validateRoute,
+  isEmptySegmentList,
+  verifyObject,
+  isValidHashIdObject,
+  isValidPublicKey,
+  getCommitTimeline
+} from "./Utils";
 
 @Info({ title: "DeliveryContract", description: "Smart Contract for handling delivery." })
 export class DeliveryContract extends Contract {
-  @Transaction(false)
-  public async getAllValues<T extends ModelPrefix>(ctx: Context, prefix: T): Promise<ModelTypeMap[T][]> {
-    const iterator = await ctx.stub.getStateByRange(`${prefix}-`, `${prefix}-`);
+  private async getAllValues<T extends ModelPrefix>(ctx: Context, prefix: T): Promise<ModelTypeMap[T][]> {
+    const iterator = ctx.stub.getStateByRange(`${prefix}-`, `${prefix}.`);
     const result: ModelTypeMap[T][] = [];
-    let res = await iterator.next();
-    while (!res.done) {
-      result.push(SimpleJSONSerializer.deserialize(res.value.value));
-      res = await iterator.next();
+    for await (const res of iterator) {
+      result.push(SimpleJSONSerializer.deserialize(res.value));
     }
     return result;
   }
 
-  @Transaction(false)
-  public async getValue<T extends ModelPrefix>(
+  private async getValue<T extends ModelPrefix>(
     ctx: Context,
     prefix: T,
     uuid: string
@@ -64,6 +61,34 @@ export class DeliveryContract extends Contract {
 
   private async deleteValue<T extends ModelPrefix>(ctx: Context, prefix: T, uuid: string): Promise<void> {
     await ctx.stub.deleteState(`${prefix}-${uuid}`);
+  }
+
+  @Transaction(false)
+  public async getAllData(ctx: Context, prefix: string): Promise<any[]> {
+    // The parameter "prefix" must be a string type,
+    // Otherwise it will be a pure Object type and will not be able to be used in a Transaction.
+    switch (prefix) {
+      case "rp":
+      case "rt":
+      case "ad":
+      case "cr":
+        return this.getAllValues(ctx, prefix);
+      default:
+        throw new Error(`The prefix ${prefix} is not valid.`);
+    }
+  }
+
+  @Transaction(false)
+  public async getData(ctx: Context, prefix: string, uuid: string): Promise<any> {
+    switch (prefix) {
+      case "rp":
+      case "rt":
+      case "ad":
+      case "cr":
+        return this.getValue(ctx, prefix, uuid);
+      default:
+        throw new Error(`The prefix ${prefix} is not valid.`);
+    }
   }
 
   @Transaction()
