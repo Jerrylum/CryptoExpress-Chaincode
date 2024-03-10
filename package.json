@@ -12,6 +12,7 @@
     "format": "prettier . --write --cache",
     "check-format": "prettier . -c --cache",
     "test": "nyc mocha -r ts-node/register src/**/*.spec.ts",
+    "test-with-coverage": "nyc --reporter=html mocha -r ts-node/register src/**/*.spec.ts",
     "start": "fabric-chaincode-node start",
     "build": "tsc",
     "build:watch": "tsc -w",
