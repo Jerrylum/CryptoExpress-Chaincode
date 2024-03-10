@@ -4,7 +4,7 @@ import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { DeliveryContract } from "./DeliveryContract";
 import { serializers } from ".";
-import { Address, Courier, RouteProposal, Stop } from "./Models";
+import { Address, Courier, HashIdObject, RouteProposal, Stop } from "./Models";
 import {
   exportPrivateKey,
   exportPublicKey,
@@ -14,6 +14,7 @@ import {
   signObject
 } from "./Utils";
 import { expect } from "chai";
+import { getMetadataJson } from "./index.spec";
 
 abstract class ExtendedChaincodeStub extends ChaincodeStub {
   // abstract db: Map<string, Uint8Array>;
@@ -40,7 +41,10 @@ class TestRuntime {
 
   createStub(fnName: string, ...args: any[]) {
     const stub = sinon.createStubInstance(ExtendedChaincodeStub);
-    stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => SimpleJSONSerializer.serialize(arg))]);
+    stub.getBufferArgs.returns([
+      Buffer.from(fnName),
+      ...(args.map(arg => SimpleJSONSerializer.serialize(arg)).filter(arg => arg !== undefined) as Buffer[])
+    ]);
     stub.getTxID.returns("txId");
     stub.getChannelID.returns("channelId");
     stub.getCreator.returns({ mspid: "mspId", idBytes: Buffer.from(certWithAttrs) });
@@ -53,54 +57,52 @@ class TestRuntime {
     stub.deleteState.callsFake(async (key: string) => {
       this.db.delete(key);
     });
-    stub.getStateByRange.callsFake(
-      (startKey: string, endKey: string) => {
-        const result: Iterators.KV[] = [];
-        for (const [key, value] of this.db) {
-          if ((startKey <= key && (endKey === "" || key < endKey)) ) {
-            result.push({ namespace: "", key, value });
-          }
+    stub.getStateByRange.callsFake((startKey: string, endKey: string) => {
+      const result: Iterators.KV[] = [];
+      for (const [key, value] of this.db) {
+        if (startKey <= key && (endKey === "" || key < endKey)) {
+          result.push({ namespace: "", key, value });
         }
-        
-        let idx = 0;
-
-        const promise = new Promise<Iterators.StateQueryIterator>(resolve => {
-          resolve({
-            close: async () => {},
-            next: async () => {
-              if (idx >= result.length) {
-                return { done: true, value: undefined as any };
-              } else {
-                return { done: false, value: result[idx++] };
-              }
-            }
-          });
-        }) as Promise<Iterators.StateQueryIterator> & AsyncIterable<Iterators.KV>;
-        promise[Symbol.asyncIterator] = () => {
-          let iterator: Iterators.StateQueryIterator;
-          return {
-            next: async (): Promise<IteratorResult<Iterators.KV, any>> => {
-              if (!iterator) {
-                const response = await promise;
-                iterator = response;
-              }
-              
-              const nextVal = await iterator.next();
-              if (nextVal.done) {
-                await iterator.close();
-              }
-              
-              return nextVal;
-            },
-            return: async () => {
-              await iterator.close();
-              return { done: true, value: undefined };
-            }
-          };
-        };
-        return promise;
       }
-    );
+
+      let idx = 0;
+
+      const promise = new Promise<Iterators.StateQueryIterator>(resolve => {
+        resolve({
+          close: async () => {},
+          next: async () => {
+            if (idx >= result.length) {
+              return { done: true, value: undefined as any };
+            } else {
+              return { done: false, value: result[idx++] };
+            }
+          }
+        });
+      }) as Promise<Iterators.StateQueryIterator> & AsyncIterable<Iterators.KV>;
+      promise[Symbol.asyncIterator] = () => {
+        let iterator: Iterators.StateQueryIterator;
+        return {
+          next: async (): Promise<IteratorResult<Iterators.KV, any>> => {
+            if (!iterator) {
+              const response = await promise;
+              iterator = response;
+            }
+
+            const nextVal = await iterator.next();
+            if (nextVal.done) {
+              await iterator.close();
+            }
+
+            return nextVal;
+          },
+          return: async () => {
+            await iterator.close();
+            return { done: true, value: undefined };
+          }
+        };
+      };
+      return promise;
+    });
 
     return stub;
   }
@@ -114,8 +116,14 @@ async function readIterator(iterator: Promise<Iterators.StateQueryIterator> & As
   return result;
 }
 
+function createHashIdObject<T extends HashIdObject>(obj: Omit<T, "hashId">): T {
+  const rtn = obj as T;
+  rtn.hashId = objectToSha256Hash(omitProperty(obj, "hashId"));
+  return rtn;
+}
+
 describe("TestRuntime", () => {
-  it("runtime database behavior", async () => {
+  it("CRUD should be successful", async () => {
     const rt = new TestRuntime();
 
     rt.createStub("test").putState("hello", Buffer.from("world"));
@@ -142,7 +150,42 @@ describe("TestRuntime", () => {
     expect(result3.map(v => v.toString())).to.deep.equal(["my world", "data1", "data2", "data3"]);
 
     const result4 = await readIterator(rt.createStub("test").getStateByRange("no", "no"));
-    expect(result4.map(v => v.toString())).to.be.empty
+    expect(result4.map(v => v.toString())).to.be.empty;
+
+    rt.createStub("test").deleteState("hello");
+    const value4 = (await rt.createStub("test").getState("hello")).toString();
+    expect(value4).to.equal("");
+
+    rt.createStub("test").deleteState("hello");
+    const value5 = (await rt.createStub("test").getState("hello")).toString();
+    expect(value5).to.equal("");
+  });
+});
+
+describe("DeliveryContract", () => {
+  const metadata = getMetadataJson();
+
+  const c = new ChaincodeFromContract([DeliveryContract], serializers, metadata, "title", "version");
+
+  it("CRUD Courier", async () => {
+    const rt = new TestRuntime();
+
+    const courier: Courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+
+    // Create
+    const result = await c.Invoke(rt.createStub("releaseCourier", courier));
+    console.log(result);
+
+    expect(result.status).to.equal(200);
+
+    // Read
+    // const result2 = await c.Invoke(rt.createStub("getData", "cr", courier.hashId));
+    // expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize(courier));
   });
 });
 

@@ -1,23 +1,13 @@
-import { Context, Contract, Transaction } from "fabric-contract-api";
+import { Context, Contract, Info, Transaction } from "fabric-contract-api";
 
 import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { ChaincodeStub } from "fabric-shim";
 import sinon = require("sinon");
 import { expect } from "chai";
-import {
-  Address,
-  Courier,
-  Good,
-  Stop,
-  Transport,
-  CommitDetail,
-  Commit,
-  Segment,
-  Route,
-  RouteProposal
-} from "./Models";
+import { Address, Courier, Good, Stop, Transport, CommitDetail, Commit, Segment, Route, RouteProposal } from "./Models";
 import { serializers } from ".";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
+import { getMetadataJson } from "./index.spec";
 
 abstract class ExtendedChaincodeStub extends ChaincodeStub {
   abstract getBufferArgs(): Buffer[];
@@ -38,7 +28,7 @@ const certWithAttrs =
   "9v3hRt1r8j8vN0pMcg==" +
   "-----END CERTIFICATE-----";
 
-function createStub(fnName: string, ...args: any[]) {
+function createStub(fnName: string, ...args: ({} | null)[]) {
   const stub = sinon.createStubInstance(ExtendedChaincodeStub);
   stub.getBufferArgs.returns([Buffer.from(fnName), ...args.map(arg => SimpleJSONSerializer.serialize(arg))]);
   stub.getTxID.returns("txId");
@@ -48,11 +38,9 @@ function createStub(fnName: string, ...args: any[]) {
 }
 
 describe("Test Models Serialization", async () => {
-  // get package.json root path
-  const rootPath = process.cwd();
-  // read text from META-INF/metadata.json
-  const metadata = require(`${rootPath}/META-INF/metadata.json`);
+  const metadata = getMetadataJson();
 
+  @Info({ title: "TextContract", description: "Smart Contract for handling Models test cases." })
   class TextContract extends Contract {
     @Transaction()
     public async textTransaction(ctx: Context, name: string, age: number): Promise<string> {
