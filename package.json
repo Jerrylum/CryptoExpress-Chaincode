@@ -56,8 +56,10 @@
       ".tsx"
     ],
     "exclude": [
+      "prettier.config.js",
       "coverage/**",
-      "dist/**"
+      "dist/**",
+      "src/lib/**"
     ],
     "reporter": [
       "text-summary",
