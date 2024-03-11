@@ -22,9 +22,9 @@ import {
   isEmptySegmentList,
   verifyObject,
   isValidHashIdObject,
-  isValidPublicKey,
-  getCommitTimeline
+  isValidPublicKey
 } from "./Utils";
+import { RouteView } from "./RouteView";
 
 @Info({ title: "DeliveryContract", description: "Smart Contract for handling delivery." })
 export class DeliveryContract extends Contract {
@@ -190,26 +190,34 @@ export class DeliveryContract extends Contract {
       throw new Error(`The route ${routeUuid} does not exist.`);
     }
 
-    const segment = route.commits[segmentIndex];
-
-    if (!segment) {
+    const currentSegment = route.commits[segmentIndex];
+    if (!currentSegment) {
       throw new Error(`The segment ${segmentIndex} does not exist.`);
     }
 
-    if (segment[step]) {
+    const currentStep = currentSegment[step];
+    if (currentStep) {
       throw new Error(`The step ${step} is already committed.`);
     }
 
-    const timeline = getCommitTimeline(route);
-    const previous = timeline[timeline.length - 1];
+    const routeView = new RouteView(route);
 
-    if (previous && commit.detail.timestamp < previous.detail.timestamp) {
+    const previousMoment = routeView.moments.filter(t => t !== null).at(-1);
+    if (previousMoment && commit.detail.timestamp < previousMoment.actualTimestamp!) {
       throw new Error(`The commit is not in the correct order.`);
     }
 
-    // TODO: verify recent, check no jump step, verify signature
+    const now = Math.floor(Date.now() / 1000);
+    if (commit.detail.timestamp < now - 60 || commit.detail.timestamp > now + 60) {
+      throw new Error(`The commit timestamp is not within one minute.`);
+    }
 
-    segment[step] = commit;
+    const publicKey = routeView.transports[segmentIndex][step].entity.publicKey;
+    if (verifyObject(commit.detail, commit.signature, publicKey)) {
+      throw new Error(`The commit signature is not valid.`);
+    }
+
+    currentSegment[step] = commit;
 
     await this.putValue(ctx, "rt", routeUuid, route);
   }
