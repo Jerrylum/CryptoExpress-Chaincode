@@ -18,23 +18,41 @@ import {
   Route,
   SignatureHexString,
   Commit,
-  UuidObject} from "./Models";
+  UuidObject
+} from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
+/**
+ * The omitProperty function is used to remove a property from an object.
+ * @param obj The object to remove the property from.
+ * @param keyToOmit The property to remove from the object.
+ */
 export function omitProperty<T, K extends keyof any>(obj: T, keyToOmit: K): Omit<T, K> {
   const { [keyToOmit]: _, ...rest } = obj;
   return rest;
 }
 
+/**
+ * The isValidHashIdObject function is used to validate a HashIdObject.
+ * @param target The object to validate.
+ */
 export function isValidHashIdObject(target: HashIdObject) {
   const hashObj = omitProperty(target, "hashId");
   return objectToSha256Hash(hashObj) === target.hashId;
 }
 
+/**
+ * The isValidHashIdObjectCollection function is used to validate a collection of HashIdObjects.
+ * @param target The collection to validate.
+ */
 export function isValidHashIdObjectCollection(target: { [hashId: string]: HashIdObject }) {
   return Object.keys(target).every(hashId => target[hashId].hashId === hashId && isValidHashIdObject(target[hashId]));
 }
 
+/**
+ * The isValidPublicKey function is used to validate a public key.
+ * @param target The public key to validate.
+ */
 export function isValidPublicKey(target: KeyHexString) {
   try {
     importPublicKey(target);
@@ -44,18 +62,37 @@ export function isValidPublicKey(target: KeyHexString) {
   }
 }
 
+/**
+ * The isValidPublicKeyObjectCollection function is used to validate a collection of public keys.
+ * @param target The collection to validate.
+ */
 export function isValidPublicKeyObjectCollection(target: { [hashId: string]: PublicKeyObject }) {
   return Object.keys(target).every(hashId => isValidPublicKey(target[hashId].publicKey));
 }
 
+/**
+ * The isValidUuid function is used to validate a UUID.
+ * @param target The UUID to validate.
+ */
 export function isValidUuid(target: string) {
   return target.length >= 16 && target.length <= 64 && /^[a-zA-Z0-9]+$/.test(target);
 }
 
+/**
+ * The isValidUuidObject function is used to validate a UuidObject.
+ * @param target The object to validate.
+ */
 export function isValidUuidObjectCollection(target: { [uuid: string]: UuidObject }) {
   return Object.keys(target).every(uuid => target[uuid].uuid === uuid && isValidUuid(target[uuid].uuid));
 }
 
+/**
+ * The isValidRouteDetail function is used to validate the detail of a route.
+ * @param addressHashIds The collection of address hash IDs.
+ * @param courierHashIds The collection of courier hash IDs.
+ * @param goodsUuids The collection of goods UUIDs.
+ * @param firstStop The first stop of the route.
+ */
 export function isValidRouteDetail(
   addressHashIds: string[],
   courierHashIds: string[],
@@ -73,15 +110,18 @@ export function isValidRouteDetail(
   }
 
   while (transport) {
+    // The stop address is not in the route address book.
     if (!addressHashIds.includes(stop.address)) {
       return false;
     }
 
+    // The stop timestamp is in the pass, invalid.
     if (stop.expectedArrivalTimestamp < currentTimestamp) {
       return false;
     }
     currentTimestamp = stop.expectedArrivalTimestamp;
 
+    // The goods is not in the neither the input nor the output of the stop.
     if (
       !Object.keys(stop.input).every(uuid => goodsUuids.includes(uuid)) ||
       !Object.keys(stop.output).every(uuid => goodsUuids.includes(uuid))
@@ -89,6 +129,7 @@ export function isValidRouteDetail(
       return false;
     }
 
+    // The transport courier is not in the route courier book.
     if (!courierHashIds.includes(transport.courier)) {
       return false;
     }
@@ -100,12 +141,20 @@ export function isValidRouteDetail(
   return true;
 }
 
+/**
+ * The objectToSha256Hash function is used to generate a SHA256 hash from an object.
+ * @param obj The object to hash.
+ */
 export function objectToSha256Hash(obj: {} | null): string {
   const hash = createHash("sha256");
   hash.update(SimpleJSONSerializer.serialize(obj));
   return hash.digest("hex");
 }
 
+/**
+ * The isEmptySegment function is used to check if a segment has not been signed.
+ * @param segment The segment to check.
+ */
 export function isEmptySegment(segment: Segment) {
   return (
     segment.srcOutgoing === undefined &&
@@ -115,10 +164,18 @@ export function isEmptySegment(segment: Segment) {
   );
 }
 
+/**
+ * The isEmptySegmentList function is used to check if a list of segments has not been signed.
+ * @param segments The list of segments to check.
+ */
 export function isEmptySegmentList(segments: Segment[]) {
   return segments.every(isEmptySegment);
 }
 
+/**
+ * The validateRoute function is used to validate a route.
+ * @param route The route to validate.
+ */
 export function validateRoute(route: Route): boolean {
   const uuid = route.uuid;
   const goods = route.goods;
@@ -171,6 +228,10 @@ export function validateRoute(route: Route): boolean {
   return true;
 }
 
+/**
+ * The getCommitTimeline function is used to get the commit timeline from a route.
+ * @param route The route to get the commit timeline from.
+ */
 export function getCommitTimeline(route: Route): Commit[] {
   let commits: Commit[] = [];
 
@@ -192,12 +253,20 @@ export function getCommitTimeline(route: Route): Commit[] {
   return commits;
 }
 
+/**
+ * The createHashIdObject function is used to create a HashIdObject.
+ * @param obj The object to create the HashIdObject from.
+ */
 export function createHashIdObject<T extends HashIdObject>(obj: Omit<T, "hashId">): T {
   const rtn = obj as T;
   rtn.hashId = objectToSha256Hash(omitProperty(obj, "hashId"));
   return rtn;
 }
 
+/**
+ * The createPublicKeyObject function is used to create a PublicKeyObject.
+ * @param publicKey The public key to create the PublicKeyObject from.
+ */
 export function signObject(target: {} | null, privateKey: KeyHexString): SignatureHexString {
   const sign = createSign("SHA256");
   sign.update(SimpleJSONSerializer.serialize(target));
@@ -205,6 +274,12 @@ export function signObject(target: {} | null, privateKey: KeyHexString): Signatu
   return sign.sign(importPrivateKey(privateKey), "hex");
 }
 
+/**
+ * The verifyObject function is used to verify a signature.
+ * @param target The object to verify.
+ * @param signature The signature to verify.
+ * @param publicKey The public key to verify the signature with.
+ */
 export function verifyObject(target: {} | null, signature: SignatureHexString, publicKey: KeyHexString): boolean {
   const verify = createVerify("SHA256");
   verify.update(SimpleJSONSerializer.serialize(target));
@@ -212,14 +287,26 @@ export function verifyObject(target: {} | null, signature: SignatureHexString, p
   return verify.verify(importPublicKey(publicKey), signature, "hex");
 }
 
+/**
+ * The createUuidObject function is used to create a UuidObject.
+ * @param obj The object to create the UuidObject from.
+ */
 export function exportPublicKey(key: KeyObject) {
   return key.export({ type: "spki", format: "der" }).toString("hex");
 }
 
+/**
+ * The exportPrivateKey function is used to export a private key.
+ * @param key The key to export.
+ */
 export function exportPrivateKey(key: KeyObject) {
   return key.export({ type: "sec1", format: "der" }).toString("hex");
 }
 
+/**
+ * The importPublicKey function is used to import a public key.
+ * @param key The key to import.
+ */
 export function importPublicKey(key: string) {
   return createPublicKey({
     format: "der",
@@ -228,6 +315,10 @@ export function importPublicKey(key: string) {
   });
 }
 
+/**
+ * The importPrivateKey function is used to import a private key.
+ * @param key The key to import.
+ */
 export function importPrivateKey(key: string) {
   return createPrivateKey({
     format: "der",
@@ -236,6 +327,9 @@ export function importPrivateKey(key: string) {
   });
 }
 
+/**
+ * The generateKeyPair function is used to generate a key pair with the ECDSA algorithm and the sect239k1 curve for signing and verification.
+ */
 export function generateKeyPair(): KeyPairKeyObjectResult {
   return generateKeyPairSync("ec", { namedCurve: "sect239k1" });
 }
