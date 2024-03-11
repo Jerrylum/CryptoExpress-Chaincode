@@ -14,17 +14,12 @@ import {
   Address,
   Courier,
   Commit,
-  TransportStep
+  TransportStep,
+  TransportStepIndexMap
 } from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
-import {
-  validateRoute,
-  isEmptySegmentList,
-  verifyObject,
-  isValidHashIdObject,
-  isValidPublicKey
-} from "./Utils";
-import { RouteView } from "./RouteView";
+import { validateRoute, isEmptySegmentList, verifyObject, isValidHashIdObject, isValidPublicKey } from "./Utils";
+import { RouteMoment, RouteView } from "./RouteView";
 
 @Info({ title: "DeliveryContract", description: "Smart Contract for handling delivery." })
 export class DeliveryContract extends Contract {
@@ -190,21 +185,33 @@ export class DeliveryContract extends Contract {
       throw new Error(`The route ${routeUuid} does not exist.`);
     }
 
-    const currentSegment = route.commits[segmentIndex];
-    if (!currentSegment) {
-      throw new Error(`The segment ${segmentIndex} does not exist.`);
+    if (segmentIndex < 0 || segmentIndex >= route.commits.length) {
+      throw new Error(`The segment index ${segmentIndex} is not valid.`);
     }
 
-    const currentStep = currentSegment[step];
-    if (currentStep) {
-      throw new Error(`The step ${step} is already committed.`);
+    if (TransportStepIndexMap.includes(step) === false) {
+      throw new Error(`The step ${step} is not valid.`);
     }
 
     const routeView = new RouteView(route);
 
-    const previousMoment = routeView.moments.filter(t => t !== null).at(-1);
-    if (previousMoment && commit.detail.timestamp < previousMoment.actualTimestamp!) {
-      throw new Error(`The commit is not in the correct order.`);
+    const currentMomentIndex = segmentIndex * 4 + TransportStepIndexMap.indexOf(step);
+    const currentMoment = routeView.moments[currentMomentIndex];
+    const previousMoment = routeView.moments[currentMomentIndex - 1] as RouteMoment | undefined;
+
+    // The current moment will not be undefined, just the actualTimestamp will be null.
+    if (currentMoment.actualTimestamp !== null) {
+      throw new Error(`The current moment is already committed.`);
+    }
+
+    if (previousMoment) {
+      if (previousMoment.actualTimestamp === null) {
+        throw new Error(`The previous moment is not committed.`);
+      }
+
+      if (previousMoment.actualTimestamp > commit.detail.timestamp) {
+        throw new Error(`The commit is not in the correct order.`);
+      }
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -213,11 +220,11 @@ export class DeliveryContract extends Contract {
     }
 
     const publicKey = routeView.transports[segmentIndex][step].entity.publicKey;
-    if (verifyObject(commit.detail, commit.signature, publicKey)) {
+    if (verifyObject(commit.detail, commit.signature, publicKey) === false) {
       throw new Error(`The commit signature is not valid.`);
     }
 
-    currentSegment[step] = commit;
+    route.commits[segmentIndex][step] = commit;
 
     await this.putValue(ctx, "rt", routeUuid, route);
   }

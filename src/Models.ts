@@ -12,6 +12,8 @@ export type ModelTypeMap = {
 
 export type TransportStep = "srcOutgoing" | "courierReceiving" | "courierDelivering" | "dstIncoming";
 
+export const TransportStepIndexMap = ["srcOutgoing", "courierReceiving", "courierDelivering", "dstIncoming"] as const;
+
 export interface HashIdObject {
   hashId: string;
 }

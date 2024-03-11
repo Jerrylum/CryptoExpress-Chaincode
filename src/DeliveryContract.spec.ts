@@ -5,13 +5,7 @@ import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { DeliveryContract } from "./DeliveryContract";
 import { serializers } from ".";
 import { Address, Commit, Courier, Route, RouteProposal } from "./Models";
-import {
-  createHashIdObject,
-  exportPrivateKey,
-  exportPublicKey,
-  generateKeyPair,
-  signObject
-} from "./Utils";
+import { createHashIdObject, exportPrivateKey, exportPublicKey, generateKeyPair, signObject } from "./Utils";
 import { expect } from "chai";
 import { getMetadataJson } from "./index.spec";
 
@@ -163,16 +157,41 @@ describe("DeliveryContract", () => {
   it("CRD Address: releaseAddress & removeAddress", async () => {
     const rt = new TestRuntime();
 
-    const address: Address = createHashIdObject({
+    let address: Address = createHashIdObject({
       line1: "my line1",
       line2: "my line2",
       recipient: "my recipient",
       publicKey: exportPublicKey(generateKeyPair().publicKey)
     });
 
+    // remove a non-exist address
+    const result4 = await c.Invoke(rt.createStub("removeAddress", address.hashId));
+    expect(result4.message).to.equal(`The address ${address.hashId} does not exist.`);
+
+    // Create with invalid hash id
+    address.hashId = "invalid hash id";
+    const result0 = await c.Invoke(rt.createStub("releaseAddress", address));
+    expect(result0.message).to.equal(`The address hashId is not valid.`);
+
+    // Create with invalid public key
+    address = createHashIdObject({
+      line1: "my line1",
+      line2: "my line2",
+      recipient: "my recipient",
+      publicKey: "invalid public key"
+    });
+    const result7 = await c.Invoke(rt.createStub("releaseAddress", address));
+    expect(result7.message).to.equal(`The public key is not valid.`);
+
     // Create
-    const result = await c.Invoke(rt.createStub("releaseAddress", address));
-    expect(result.status).to.equal(200);
+    address = createHashIdObject({
+      line1: "my line1",
+      line2: "my line2",
+      recipient: "my recipient",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+    const result8 = await c.Invoke(rt.createStub("releaseAddress", address));
+    expect(result8.status).to.equal(200);
 
     // Read
     const result2 = await c.Invoke(rt.createStub("getData", "ad", address.hashId));
@@ -190,16 +209,41 @@ describe("DeliveryContract", () => {
   it("CRD Courier: releaseCourier & removeCourier", async () => {
     const rt = new TestRuntime();
 
-    const courier: Courier = createHashIdObject({
+    let courier: Courier = createHashIdObject({
       name: "my name",
       company: "my company",
       telephone: "my telephone",
       publicKey: exportPublicKey(generateKeyPair().publicKey)
     });
 
-    // Create
+    // Create with invalid hash id
+    courier.hashId = "invalid hash id";
+    const result0 = await c.Invoke(rt.createStub("releaseCourier", courier));
+    expect(result0.message).to.equal(`The courier hashId is not valid.`);
+
+    // Create with invalid public key
+    courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: "invalid public key"
+    });
     const result = await c.Invoke(rt.createStub("releaseCourier", courier));
-    expect(result.status).to.equal(200);
+    expect(result.message).to.equal(`The public key is not valid.`);
+
+    // Remove a non-exist courier
+    const result7 = await c.Invoke(rt.createStub("removeCourier", courier.hashId));
+    expect(result7.message).to.equal(`The courier ${courier.hashId} does not exist.`);
+
+    // Create
+    courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+    const result1 = await c.Invoke(rt.createStub("releaseCourier", courier));
+    expect(result1.status).to.equal(200);
 
     // Read
     const result2 = await c.Invoke(rt.createStub("getData", "cr", courier.hashId));
@@ -289,6 +333,10 @@ describe("DeliveryContract", () => {
     const result5 = await c.Invoke(rt.createStub("removeRouteProposal", uuid));
     expect(result5.status).to.equal(200);
 
+    // Delete non-exist route
+    const result9 = await c.Invoke(rt.createStub("removeRouteProposal", "123123"));
+    expect(result9.message).to.equal(`The route proposal 123123 does not exist.`);
+
     // Read
     const result6 = await c.Invoke(rt.createStub("getData", "rp", uuid));
     expect(result6.payload).to.be.empty;
@@ -371,6 +419,15 @@ describe("DeliveryContract", () => {
 
     const proposal: RouteProposal = SimpleJSONSerializer.deserialize(result.payload);
     expect(proposal.route).to.deep.equal(route);
+
+    // Try to sign as a non-exist address
+    const signTest = signObject(route, exportPrivateKey(keyPairA.privateKey));
+    const result0 = await c.Invoke(rt.createStub("signRouteProposal", uuid, "non-exist", signTest));
+    expect(result0.message).to.equal(`The entity non-exist does not exist in the route.`);
+
+    // Try to sign with a invalid signature
+    const result1 = await c.Invoke(rt.createStub("signRouteProposal", uuid, addrA.hashId, "invalid signature"));
+    expect(result1.message).to.equal(`The signature is not valid.`);
 
     // Sign
     const signA = signObject(route, exportPrivateKey(keyPairA.privateKey));
@@ -499,41 +556,126 @@ describe("DeliveryContract", () => {
       },
       signature: "random invalid signature"
     };
+
     // Try to commit before put in the state db
     const result = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
     expect(result.message).to.equal(`The route ${route.uuid} does not exist.`);
 
-    // Create
-    const result2 = await c.Invoke(rt.createStub("createRouteProposal", route));
-    expect(result2.status).to.equal(200);
-
-    // Modify the key of the route in the state db to pretend it is a submitted route
+    // Mock a submitted route
     rt.db.set(`rt-${route.uuid}`, SimpleJSONSerializer.serialize(route));
 
-    // Try to commit on a invalid segment index 
+    // Try to commit on a invalid segment index
     const result3 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 1, "srcOutgoing", commit));
-    expect(result3.message).to.equal(`The segment 1 does not exist.`);
+    expect(result3.message).to.equal(`The segment index 1 is not valid.`);
+
+    const result4 = await c.Invoke(rt.createStub("commitProgress", route.uuid, -1, "srcOutgoing", commit));
+    expect(result4.message).to.equal(`The segment index -1 is not valid.`);
+
+    // Try to commit on a invalid commit name
+    const result5 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "notExist", commit));
+    expect(result5.message).to.equal(`The step notExist is not valid.`);
 
     // Commit that is not within the range of 60 seconds
-    const result4 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    expect(result4.message).to.equal(`The commit timestamp is not within one minute.`);
+    const result6 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result6.message).to.equal(`The commit timestamp is not within one minute.`);
 
     commit.detail.timestamp = Date.now() / 1000;
     // Commit that has invalid signature
-    const result5 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    expect(result5.message).to.equal(`The commit signature is not valid.`);
+    const result7 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result7.message).to.equal(`The commit signature is not valid.`);
 
-    // // Commit success
-    // commit.signature = signObject(commit.detail, exportPrivateKey(keyPairA.privateKey));
-    // const result6 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    // expect(result6.status).to.equal(200);
+    // Commit success
+    commit.signature = signObject(commit.detail, exportPrivateKey(keyPairA.privateKey));
+    const result8 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result8.status).to.equal(200);
 
-    // // Commit twice
-    // const result7 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    // expect(result7.message).to.equal(`The step srcOutgoing is already committed.`);
+    // Commit twice
+    const result9 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result9.message).to.equal(`The current moment is already committed.`);
+
+    // Commit on a future segment
+    const result10 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierDelivering", commit));
+    expect(result10.message).to.equal(`The previous moment is not committed.`);
+
+    // invalid timestamp segment
+    commit.detail.timestamp = -1;
+    const result11 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierReceiving", commit));
+    expect(result11.message).to.equal(`The commit is not in the correct order.`);
   });
 
-  it("getData should return expected data", async () => {});
+  it("getData should return expected data", async () => {
+    const rt = new TestRuntime();
 
-  it("getAllData should returns all data", async () => {});
+    // mock the db in rt to have map as the 4 types of data
+    const address: Address = createHashIdObject({
+      line1: "my line1",
+      line2: "my line2",
+      recipient: "my recipient",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+    rt.db.set(`ad-${address.hashId}`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`cr-${address.hashId}`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rp-${address.hashId}`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rt-${address.hashId}`, SimpleJSONSerializer.serialize(address));
+
+    // get specific data of prefix 'ad'
+    const result = await c.Invoke(rt.createStub("getData", "ad", address.hashId));
+    expect(result.payload).to.deep.equal(SimpleJSONSerializer.serialize(address));
+
+    // get specific data of prefix 'cr'
+    const result2 = await c.Invoke(rt.createStub("getData", "cr", address.hashId));
+    expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize(address));
+
+    // get specific data of prefix 'rp'
+    const result3 = await c.Invoke(rt.createStub("getData", "rp", address.hashId));
+    expect(result3.payload).to.deep.equal(SimpleJSONSerializer.serialize(address));
+
+    // get specific data of prefix 'rt'
+    const result4 = await c.Invoke(rt.createStub("getData", "rt", address.hashId));
+    expect(result4.payload).to.deep.equal(SimpleJSONSerializer.serialize(address));
+
+    // invalid prefix
+    const result5 = await c.Invoke(rt.createStub("getData", "invalid", address.hashId));
+    expect(result5.message).to.equal(`The prefix invalid is not valid.`);
+  });
+
+  it("getAllData should returns all data", async () => {
+    const rt = new TestRuntime();
+
+    // mock the db in rt to have map as the 4 types of data, each type with 2 data
+    const address: Address = createHashIdObject({
+      line1: "my line1",
+      line2: "my line2",
+      recipient: "my recipient",
+      publicKey: exportPublicKey(generateKeyPair().publicKey)
+    });
+    rt.db.set(`ad-${address.hashId}1`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`ad-${address.hashId}2`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`cr-${address.hashId}1`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`cr-${address.hashId}2`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rp-${address.hashId}1`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rp-${address.hashId}2`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rt-${address.hashId}1`, SimpleJSONSerializer.serialize(address));
+    rt.db.set(`rt-${address.hashId}2`, SimpleJSONSerializer.serialize(address));
+
+    // get all data of prefix 'ad'
+    const result = await c.Invoke(rt.createStub("getAllData", "ad"));
+    expect(result.payload).to.deep.equal(SimpleJSONSerializer.serialize([address, address]));
+
+    // get all data of prefix 'cr'
+    const result2 = await c.Invoke(rt.createStub("getAllData", "cr"));
+    expect(result2.payload).to.deep.equal(SimpleJSONSerializer.serialize([address, address]));
+
+    // get all data of prefix 'rp'
+    const result3 = await c.Invoke(rt.createStub("getAllData", "rp"));
+    expect(result3.payload).to.deep.equal(SimpleJSONSerializer.serialize([address, address]));
+
+    // get all data of prefix 'rt'
+    const result4 = await c.Invoke(rt.createStub("getAllData", "rt"));
+    expect(result4.payload).to.deep.equal(SimpleJSONSerializer.serialize([address, address]));
+
+    // invalid prefix
+    const result5 = await c.Invoke(rt.createStub("getAllData", "invalid"));
+    expect(result5.message).to.equal(`The prefix invalid is not valid.`);
+  });
 });
