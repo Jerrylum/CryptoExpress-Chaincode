@@ -23,6 +23,12 @@ import { RouteMoment, RouteView } from "./RouteView";
 
 @Info({ title: "DeliveryContract", description: "Smart Contract for handling delivery." })
 export class DeliveryContract extends Contract {
+  /**
+   * The getAllValues function is a helper function to get all the values of a specific prefix.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @returns The array of the model values.
+   */
   private async getAllValues<T extends ModelPrefix>(ctx: Context, prefix: T): Promise<ModelTypeMap[T][]> {
     const iterator = ctx.stub.getStateByRange(`${prefix}-`, `${prefix}.`);
     const result: ModelTypeMap[T][] = [];
@@ -32,6 +38,13 @@ export class DeliveryContract extends Contract {
     return result;
   }
 
+  /**
+   * The getValue function is a helper function to get the value of a specific prefix and uuid.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @param uuid The uuid of the model.
+   * @returns The model value or undefined if not found.
+   */
   private async getValue<T extends ModelPrefix>(
     ctx: Context,
     prefix: T,
@@ -44,6 +57,14 @@ export class DeliveryContract extends Contract {
     return SimpleJSONSerializer.deserialize(data);
   }
 
+  /**
+   * The putValue function is a helper function to put the value of a specific prefix and uuid.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @param uuid The uuid of the model.
+   * @param value The value of the model.
+   * @returns The value of the model.
+   */
   private async putValue<T extends ModelPrefix>(
     ctx: Context,
     prefix: T,
@@ -54,10 +75,22 @@ export class DeliveryContract extends Contract {
     return value;
   }
 
+  /**
+   * The deleteValue function is a helper function to delete the value of a specific prefix and uuid.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @param uuid The uuid of the model.
+   */
   private async deleteValue<T extends ModelPrefix>(ctx: Context, prefix: T, uuid: string): Promise<void> {
     await ctx.stub.deleteState(`${prefix}-${uuid}`);
   }
 
+  /**
+   * The getAllData function is a transaction function to get all the values of a specific prefix.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @returns The array of the model values.
+   */
   @Transaction(false)
   public async getAllData(ctx: Context, prefix: string): Promise<any[]> {
     // The parameter "prefix" must be a string type,
@@ -73,6 +106,13 @@ export class DeliveryContract extends Contract {
     }
   }
 
+  /**
+   * The getData function is a transaction function to get the value of a specific prefix and uuid.
+   * @param ctx The transaction context.
+   * @param prefix The prefix of the model.
+   * @param uuid The uuid of the model.
+   * @returns The model value or undefined if not found.
+   */
   @Transaction(false)
   public async getData(ctx: Context, prefix: string, uuid: string): Promise<any> {
     switch (prefix) {
@@ -86,6 +126,12 @@ export class DeliveryContract extends Contract {
     }
   }
 
+  /**
+   * The createRouteProposal function is a transaction function to create a route proposal.
+   * @param ctx The transaction context.
+   * @param route The route proposal.
+   * @returns The route proposal.
+   */
   @Transaction()
   public async createRouteProposal(ctx: Context, route: Route): Promise<RouteProposal> {
     validateRoute(route);
@@ -103,6 +149,11 @@ export class DeliveryContract extends Contract {
     return this.putValue(ctx, "rp", route.uuid, routeProposal);
   }
 
+  /**
+   * The removeRouteProposal function is a transaction function to remove a route proposal.
+   * @param ctx The transaction context.
+   * @param routeUuid The uuid of the route proposal.
+   */
   @Transaction()
   public async removeRouteProposal(ctx: Context, routeUuid: string): Promise<void> {
     if (!(await this.getValue(ctx, "rp", routeUuid))) {
@@ -112,6 +163,14 @@ export class DeliveryContract extends Contract {
     await this.deleteValue(ctx, "rp", routeUuid);
   }
 
+  /**
+   * The signRouteProposal function is a transaction function to sign a route proposal.
+   * @param ctx The transaction context.
+   * @param routeUuid The uuid of the route proposal.
+   * @param entityHashId The hashId of the entity.
+   * @param signature The signature of the entity.
+   * @returns The route proposal.
+   */
   @Transaction()
   public async signRouteProposal(
     ctx: Context,
@@ -149,6 +208,12 @@ export class DeliveryContract extends Contract {
     return await this.putValue(ctx, "rp", routeUuid, routeProposal);
   }
 
+  /**
+   * The submitRouteProposal function is a transaction function to submit a route proposal.
+   * @param ctx The transaction context.
+   * @param routeUuid The uuid of the route proposal.
+   * @returns The route.
+   */
   @Transaction()
   public async submitRouteProposal(ctx: Context, routeUuid: string): Promise<Route> {
     const routeProposal = await this.getValue(ctx, "rp", routeUuid);
@@ -171,6 +236,14 @@ export class DeliveryContract extends Contract {
     return route;
   }
 
+  /**
+   * The commitProgress function is a transaction function to commit the progress of a route.
+   * @param ctx The transaction context.
+   * @param routeUuid The uuid of the route.
+   * @param segmentIndex The index of the segment.
+   * @param step The step of the transport.
+   * @param commit The commit.
+   */
   @Transaction()
   public async commitProgress(
     ctx: Context,
@@ -229,6 +302,12 @@ export class DeliveryContract extends Contract {
     await this.putValue(ctx, "rt", routeUuid, route);
   }
 
+  /**
+   * The releaseAddress function is a transaction function to create an address.
+   * @param ctx The transaction context.
+   * @param address The address.
+   * @returns The address.
+   */
   @Transaction()
   public async releaseAddress(ctx: Context, address: Address): Promise<void> {
     if (!isValidHashIdObject(address)) {
@@ -242,6 +321,12 @@ export class DeliveryContract extends Contract {
     this.putValue(ctx, "ad", address.hashId, address);
   }
 
+  /**
+   * The removeAddress function is a transaction function to remove an address.
+   * @param ctx The transaction context.
+   * @param hashId The hashId of the address.
+   * @returns The address.
+   */
   @Transaction()
   public async removeAddress(ctx: Context, hashId: string): Promise<void> {
     if (!(await this.getValue(ctx, "ad", hashId))) {
@@ -251,6 +336,12 @@ export class DeliveryContract extends Contract {
     await this.deleteValue(ctx, "ad", hashId);
   }
 
+  /**
+   * The createCourier function is a transaction function to create a courier.
+   * @param ctx The transaction context.
+   * @param courier The courier.
+   * @returns The courier.
+   */
   @Transaction()
   public async releaseCourier(ctx: Context, courier: Courier): Promise<void> {
     if (!isValidHashIdObject(courier)) {
@@ -264,6 +355,12 @@ export class DeliveryContract extends Contract {
     this.putValue(ctx, "cr", courier.hashId, courier);
   }
 
+  /**
+   * The removeCourier function is a transaction function to remove a courier.
+   * @param ctx The transaction context.
+   * @param hashId The hashId of the courier.
+   * @returns The courier.
+   */
   @Transaction()
   public async removeCourier(ctx: Context, hashId: string): Promise<void> {
     if (!(await this.getValue(ctx, "cr", hashId))) {
