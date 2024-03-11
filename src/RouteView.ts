@@ -12,7 +12,7 @@ export class RouteSourceOutgoingMoment {
   get nextStop(): MiddleStopView | LastStopView {
     return this.transport.destination;
   }
-  get expectedDelta(): GoodMoment[] {
+  get expectedDelta(): ReadonlyArray<GoodMoment> {
     return this.currentStop.expectedOutput;
   }
   get expectedTimestamp(): number {
@@ -49,7 +49,7 @@ export class RouteCourierReceivingMoment {
   get nextStop(): MiddleStopView | LastStopView {
     return this.transport.destination;
   }
-  get expectedDelta(): GoodMoment[] {
+  get expectedDelta(): ReadonlyArray<GoodMoment> {
     return this.currentStop.expectedOutput;
   }
   get expectedTimestamp(): number {
@@ -86,7 +86,7 @@ export class RouteCourierDeliveringMoment {
   get transport(): TransportView {
     return this.currentStop.previousTransport;
   }
-  get expectedDelta(): GoodMoment[] {
+  get expectedDelta(): ReadonlyArray<GoodMoment> {
     return this.currentStop.expectedInput;
   }
   get expectedTimestamp(): number {
@@ -123,7 +123,7 @@ export class RouteDestinationIncomingMoment {
   get transport(): TransportView {
     return this.currentStop.previousTransport;
   }
-  get expectedDelta(): GoodMoment[] {
+  get expectedDelta(): ReadonlyArray<GoodMoment> {
     return this.currentStop.expectedInput;
   }
   get expectedTimestamp(): number {
@@ -174,21 +174,33 @@ export class TransportView {
   readonly info: string;
   readonly source: FirstStopView | MiddleStopView;
   readonly destination: MiddleStopView | LastStopView;
+  readonly segmentIndex: number;
 
-  readonly srcOutgoing: RouteSourceOutgoingMoment;
-  readonly courierReceiving: RouteCourierReceivingMoment;
-  readonly courierDelivering: RouteCourierDeliveringMoment;
-  readonly dstIncoming: RouteDestinationIncomingMoment;
-
-  getAllMoments(): RouteMoment[] {
-    // returns all moments in order
-    return [this.srcOutgoing, this.courierReceiving, this.courierDelivering, this.dstIncoming];
+  get srcOutgoing(): RouteSourceOutgoingMoment {
+    return this.source.srcOutgoing;
   }
 
-  get expectedInput(): GoodMoment[] {
+  get courierReceiving(): RouteCourierReceivingMoment {
+    return this.source.courierReceiving;
+  }
+
+  get courierDelivering(): RouteCourierDeliveringMoment {
+    return this.destination.courierDelivering;
+  }
+
+  get dstIncoming(): RouteDestinationIncomingMoment {
+    return this.destination.dstIncoming;
+  }
+
+  get moments() {
+    // returns all moments in order
+    return [this.srcOutgoing, this.courierReceiving, this.courierDelivering, this.dstIncoming] as const;
+  }
+
+  get expectedInput(): ReadonlyArray<GoodMoment> {
     return this.srcOutgoing.expectedDelta;
   }
-  get expectedOutput(): GoodMoment[] {
+  get expectedOutput(): ReadonlyArray<GoodMoment> {
     return this.dstIncoming.expectedDelta;
   }
 
@@ -207,12 +219,7 @@ export class TransportView {
     return this.dstIncoming.actualTimestamp - this.srcOutgoing.actualTimestamp;
   }
 
-  constructor(
-    route: RouteView,
-    source: FirstStopView | MiddleStopView,
-    transport: Transport,
-    segmentIndex: number
-  ) {
+  constructor(route: RouteView, source: FirstStopView | MiddleStopView, transport: Transport, segmentIndex: number) {
     this.route = route.model;
     this.courier = route.model.couriers[transport.courier];
     this.info = transport.info;
@@ -222,12 +229,7 @@ export class TransportView {
     } else {
       this.destination = new LastStopView(route, this, transport.destination);
     }
-
-    const currentSegment = route.model.commits[segmentIndex];
-    this.srcOutgoing = new RouteSourceOutgoingMoment(source, currentSegment);
-    this.courierReceiving = new RouteCourierReceivingMoment(source, currentSegment);
-    this.courierDelivering = new RouteCourierDeliveringMoment(this.destination, currentSegment);
-    this.dstIncoming = new RouteDestinationIncomingMoment(this.destination, currentSegment);
+    this.segmentIndex = segmentIndex;
   }
 }
 
@@ -240,9 +242,10 @@ export abstract class StopView {
   abstract srcOutgoing: RouteSourceOutgoingMoment | null;
   abstract courierReceiving: RouteCourierReceivingMoment | null;
 
-  abstract expectedArrivalTimestamp: number; // Stop.expectedArrivalTimestamp
-  readonly expectedInput: GoodMoment[];
-  readonly expectedOutput: GoodMoment[];
+  abstract segmentIndexes: [number | null, number | null];
+  readonly expectedInput: ReadonlyArray<GoodMoment>;
+  readonly expectedOutput: ReadonlyArray<GoodMoment>;
+  readonly expectedArrivalTimestamp: number; // Stop.expectedArrivalTimestamp
 
   abstract previousStop: FirstStopView | MiddleStopView | null;
   abstract previousTransport: TransportView | null;
@@ -258,11 +261,12 @@ export abstract class StopView {
     this.expectedOutput = Object.entries(stop.output).map(
       ([uuid, quantity]) => new GoodMoment(route.model.goods[uuid], quantity)
     );
+    this.expectedArrivalTimestamp = stop.expectedArrivalTimestamp;
   }
 }
 
 export class FirstStopView extends StopView {
-  readonly expectedArrivalTimestamp: number;
+  readonly segmentIndexes: [number | null, number | null];
 
   readonly previousStop = null;
   readonly previousTransport = null;
@@ -281,17 +285,17 @@ export class FirstStopView extends StopView {
 
     const forwardSegment = route.model.commits[0];
 
-    this.nextTransport = new TransportView(route, this, stop.next, 0);
-    this.nextStop = this.nextTransport.destination;
-    this.expectedArrivalTimestamp = stop.expectedArrivalTimestamp;
-
     this.srcOutgoing = new RouteSourceOutgoingMoment(this, forwardSegment);
     this.courierReceiving = new RouteCourierReceivingMoment(this, forwardSegment);
+
+    this.nextTransport = new TransportView(route, this, stop.next, 0);
+    this.nextStop = this.nextTransport.destination;
+    this.segmentIndexes = [null, 0];
   }
 }
 
 export class MiddleStopView extends StopView {
-  readonly expectedArrivalTimestamp: number;
+  readonly segmentIndexes: [number, number];
 
   readonly previousStop: FirstStopView | MiddleStopView;
   readonly previousTransport: TransportView;
@@ -311,21 +315,21 @@ export class MiddleStopView extends StopView {
     const backwardSegment = route.model.commits[segmentIndex - 1];
     const forwardSegment = route.model.commits[segmentIndex];
 
-    this.previousStop = previousTransport.source;
-    this.previousTransport = previousTransport;
-    this.nextTransport = new TransportView(route, this, stop.next, segmentIndex);
-    this.nextStop = this.nextTransport.destination;
-    this.expectedArrivalTimestamp = stop.expectedArrivalTimestamp;
-
     this.courierDelivering = new RouteCourierDeliveringMoment(this, backwardSegment);
     this.dstIncoming = new RouteDestinationIncomingMoment(this, backwardSegment);
     this.srcOutgoing = new RouteSourceOutgoingMoment(this, forwardSegment);
     this.courierReceiving = new RouteCourierReceivingMoment(this, forwardSegment);
+
+    this.previousStop = previousTransport.source;
+    this.previousTransport = previousTransport;
+    this.nextTransport = new TransportView(route, this, stop.next, segmentIndex);
+    this.nextStop = this.nextTransport.destination;
+    this.segmentIndexes = [segmentIndex - 1, segmentIndex];
   }
 }
 
 export class LastStopView extends StopView {
-  readonly expectedArrivalTimestamp: number;
+  readonly segmentIndexes: [number, null];
 
   readonly previousStop: FirstStopView | MiddleStopView;
   readonly previousTransport: TransportView;
@@ -336,18 +340,18 @@ export class LastStopView extends StopView {
   readonly dstIncoming: RouteDestinationIncomingMoment;
   readonly srcOutgoing = null;
   readonly courierReceiving = null;
-  
+
   constructor(route: RouteView, previousTransport: TransportView, stop: Stop) {
     super(route, stop);
 
     const backwardSegment = route.model.commits[route.model.commits.length - 1];
 
-    this.previousStop = previousTransport.source;
-    this.previousTransport = previousTransport;
-    this.expectedArrivalTimestamp = stop.expectedArrivalTimestamp;
-
     this.courierDelivering = new RouteCourierDeliveringMoment(this, backwardSegment);
     this.dstIncoming = new RouteDestinationIncomingMoment(this, backwardSegment);
+
+    this.previousStop = previousTransport.source;
+    this.previousTransport = previousTransport;
+    this.segmentIndexes = [route.model.commits.length - 1, null];
   }
 }
 
@@ -372,5 +376,9 @@ export class RouteView {
 
   get uuid(): string {
     return this.model.uuid;
+  }
+
+  get moments(): ReadonlyArray<RouteMoment> {
+    return this.transports.map(transport => transport.moments).flat();
   }
 }
