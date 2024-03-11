@@ -18,11 +18,7 @@ import {
   Route,
   SignatureHexString,
   Commit,
-  UuidObject,
-  Address,
-  TransportStep,
-  Courier
-} from "./Models";
+  UuidObject} from "./Models";
 import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 
 export function omitProperty<T, K extends keyof any>(obj: T, keyToOmit: K): Omit<T, K> {
@@ -194,6 +190,12 @@ export function getCommitTimeline(route: Route): Commit[] {
   });
 
   return commits;
+}
+
+export function createHashIdObject<T extends HashIdObject>(obj: Omit<T, "hashId">): T {
+  const rtn = obj as T;
+  rtn.hashId = objectToSha256Hash(omitProperty(obj, "hashId"));
+  return rtn;
 }
 
 export function signObject(target: {} | null, privateKey: KeyHexString): SignatureHexString {
