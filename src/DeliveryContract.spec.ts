@@ -4,13 +4,12 @@ import { SimpleJSONSerializer } from "./SimpleJSONSerializer";
 import { ChaincodeFromContract } from "./lib/fabric-shim-internal";
 import { DeliveryContract } from "./DeliveryContract";
 import { serializers } from ".";
-import { Address, Courier, HashIdObject, Route, RouteProposal, Stop } from "./Models";
+import { Address, Commit, Courier, Route, RouteProposal } from "./Models";
 import {
+  createHashIdObject,
   exportPrivateKey,
   exportPublicKey,
   generateKeyPair,
-  objectToSha256Hash,
-  omitProperty,
   signObject
 } from "./Utils";
 import { expect } from "chai";
@@ -114,12 +113,6 @@ async function readIterator(iterator: Promise<Iterators.StateQueryIterator> & As
     result.push(res.value);
   }
   return result;
-}
-
-function createHashIdObject<T extends HashIdObject>(obj: Omit<T, "hashId">): T {
-  const rtn = obj as T;
-  rtn.hashId = objectToSha256Hash(omitProperty(obj, "hashId"));
-  return rtn;
 }
 
 describe("TestRuntime", () => {
@@ -441,7 +434,104 @@ describe("DeliveryContract", () => {
     expect(result13.message).to.equal(`The route proposal non-exist does not exist.`);
   });
 
-  it("Route life cycle: commitProgress", async () => {});
+  it("Route life cycle: commitProgress", async () => {
+    // create a valid route object with 1 segment
+    const rt = new TestRuntime();
+
+    const uuid = "550e8400e29b41d4a716446655440000";
+    const good1 = { uuid: "uuid000000000001", name: "name1", barcode: "barcode1" };
+    const good2 = { uuid: "uuid000000000002", name: "name2", barcode: "barcode2" };
+
+    const keyPairA = generateKeyPair();
+    const addrA: Address = createHashIdObject({
+      line1: "my line1 A",
+      line2: "my line2 A",
+      recipient: "my recipient A",
+      publicKey: exportPublicKey(keyPairA.publicKey)
+    });
+
+    const keyPairB = generateKeyPair();
+    const addrB: Address = createHashIdObject({
+      line1: "my line1 B",
+      line2: "my line2 B",
+      recipient: "my recipient B",
+      publicKey: exportPublicKey(keyPairB.publicKey)
+    });
+
+    const keyPairC = generateKeyPair();
+    const courier: Courier = createHashIdObject({
+      name: "my name",
+      company: "my company",
+      telephone: "my telephone",
+      publicKey: exportPublicKey(keyPairC.publicKey)
+    });
+
+    const route = {
+      uuid,
+      goods: { [good1.uuid]: good1, [good2.uuid]: good2 },
+      addresses: { [addrA.hashId]: addrA, [addrB.hashId]: addrB },
+      couriers: { [courier.hashId]: courier },
+      source: {
+        address: addrA.hashId,
+        expectedArrivalTimestamp: 0,
+        input: {},
+        output: { [good1.uuid]: 1, [good2.uuid]: 1 },
+        next: {
+          courier: courier.hashId,
+          info: "info",
+          destination: {
+            address: addrB.hashId,
+            expectedArrivalTimestamp: 10,
+            input: { [good1.uuid]: 1, [good2.uuid]: 1 },
+            output: {}
+            // next: undefined
+          }
+        }
+      },
+      commits: [{}]
+    } as Route;
+
+    const commit: Commit = {
+      detail: {
+        delta: { [good1.uuid]: 1 },
+        info: "info",
+        timestamp: 0
+      },
+      signature: "random invalid signature"
+    };
+    // Try to commit before put in the state db
+    const result = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result.message).to.equal(`The route ${route.uuid} does not exist.`);
+
+    // Create
+    const result2 = await c.Invoke(rt.createStub("createRouteProposal", route));
+    expect(result2.status).to.equal(200);
+
+    // Modify the key of the route in the state db to pretend it is a submitted route
+    rt.db.set(`rt-${route.uuid}`, SimpleJSONSerializer.serialize(route));
+
+    // Try to commit on a invalid segment index 
+    const result3 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 1, "srcOutgoing", commit));
+    expect(result3.message).to.equal(`The segment 1 does not exist.`);
+
+    // Commit that is not within the range of 60 seconds
+    const result4 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result4.message).to.equal(`The commit timestamp is not within one minute.`);
+
+    commit.detail.timestamp = Date.now() / 1000;
+    // Commit that has invalid signature
+    const result5 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result5.message).to.equal(`The commit signature is not valid.`);
+
+    // // Commit success
+    // commit.signature = signObject(commit.detail, exportPrivateKey(keyPairA.privateKey));
+    // const result6 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    // expect(result6.status).to.equal(200);
+
+    // // Commit twice
+    // const result7 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    // expect(result7.message).to.equal(`The step srcOutgoing is already committed.`);
+  });
 
   it("getData should return expected data", async () => {});
 
