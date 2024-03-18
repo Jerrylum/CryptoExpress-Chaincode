@@ -15,6 +15,7 @@
     "test-with-coverage": "nyc --reporter=html mocha -r ts-node/register src/**/*.spec.ts",
     "start": "fabric-chaincode-node start",
     "build": "tsc",
+    "postbuild": "node dist/scripts/generateMetadata.js",
     "build:watch": "tsc -w",
     "prepublishOnly": "npm run build"
   },
