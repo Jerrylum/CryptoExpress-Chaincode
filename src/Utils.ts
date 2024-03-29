@@ -142,12 +142,30 @@ export function isValidRouteDetail(
 }
 
 /**
+ * The sortObjectKeys function is used to sort the keys of an object.
+ * @param unsortedObject The object to sort the keys of.
+ * @returns The object with the sorted keys in ascending order.
+ */
+export function sortObjectKeys(unsortedObject: {} | null): {} | null {
+  if (typeof unsortedObject !== "object" || unsortedObject === null) {
+    return unsortedObject;
+  }
+
+  return Object.keys(unsortedObject)
+    .sort()
+    .reduce((acc: {}, key) => {
+      (acc as any)[key] = (unsortedObject as any)[key];
+      return acc;
+    }, {});
+}
+
+/**
  * The objectToSha256Hash function is used to generate a SHA256 hash from an object.
  * @param obj The object to hash.
  */
 export function objectToSha256Hash(obj: {} | null): string {
   const hash = createHash("sha256");
-  hash.update(SimpleJSONSerializer.serialize(obj));
+  hash.update(SimpleJSONSerializer.serialize(sortObjectKeys(obj)));
   return hash.digest("hex");
 }
 
