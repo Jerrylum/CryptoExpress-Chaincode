@@ -557,6 +557,15 @@ describe("DeliveryContract", () => {
       signature: "random invalid signature"
     };
 
+    const commit2: Commit = {
+      detail: {
+        delta: { "not valid": 1 },
+        info: "info",
+        timestamp: 0
+      },
+      signature: "random invalid signature"
+    };
+
     // Try to commit before put in the state db
     const result = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
     expect(result.message).to.equal(`The route ${route.uuid} does not exist.`);
@@ -584,23 +593,27 @@ describe("DeliveryContract", () => {
     const result7 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
     expect(result7.message).to.equal(`The commit signature is not valid.`);
 
+    commit2.detail.timestamp = Date.now() / 1000;
+    const result8 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit2));
+    expect(result8.message).to.equal(`One of the goods is not in the route.`);
+
     // Commit success
     commit.signature = signObject(commit.detail, exportPrivateKey(keyPairA.privateKey));
-    const result8 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    expect(result8.status).to.equal(200);
+    const result9 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result9.status).to.equal(200);
 
     // Commit twice
-    const result9 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
-    expect(result9.message).to.equal(`The current moment is already committed.`);
+    const result10 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "srcOutgoing", commit));
+    expect(result10.message).to.equal(`The current moment is already committed.`);
 
     // Commit on a future segment
-    const result10 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierDelivering", commit));
-    expect(result10.message).to.equal(`The previous moment is not committed.`);
+    const result11 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierDelivering", commit));
+    expect(result11.message).to.equal(`The previous moment is not committed.`);
 
     // invalid timestamp segment
     commit.detail.timestamp = -1;
-    const result11 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierReceiving", commit));
-    expect(result11.message).to.equal(`The commit is not in the correct order.`);
+    const result12 = await c.Invoke(rt.createStub("commitProgress", route.uuid, 0, "courierReceiving", commit));
+    expect(result12.message).to.equal(`The commit is not in the correct order.`);
   });
 
   it("getData should return expected data", async () => {

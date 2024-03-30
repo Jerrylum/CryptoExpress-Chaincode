@@ -292,6 +292,11 @@ export class DeliveryContract extends Contract {
       throw new Error(`The commit timestamp is not within one minute.`);
     }
 
+    const delta = commit.detail.delta;
+    if (Object.keys(delta).some(key => route.goods[key] === undefined)) {
+      throw new Error(`One of the goods is not in the route.`);
+    }
+
     const publicKey = routeView.transports[segmentIndex][step].entity.publicKey;
     if (verifyObject(commit.detail, commit.signature, publicKey) === false) {
       throw new Error(`The commit signature is not valid.`);
