@@ -1,14 +1,31 @@
 # Crypto Express Chaincode
 
 ## Introduction
-This is a repository for the chaincode and its used components for the project CryptoExpress. The standard of the chaincode is based on [Hyperledger Fabric](https://github.com/hyperledger/fabric). 
+This repository is part of the CryptoExpress project, which aims to develop a blockchain-based delivery management system using Hyperledger Fabric. The chaincode in this repository is designed to run on the Hyperledger Fabric network and manage the delivery-related operations within the system. The chaincode is implemented in TypeScript using the Fabric Contract API, providing a robust and maintainable solution for delivery management on the blockchain.
 
-All script in this repository has been already tested under [Mocha](https://mochajs.org/), the test script for each component of chaincode has been named with postfix `.spec`.
+[Mocha](https://mochajs.org/) is used for testing the chaincode.
+
 
 ## Usage
-This repository only includes the chaincode for sharing with the peer in the network, the actual use case require to install both [CryptoExpress-Portal](https://github.com/Jerrylum/CryptoExpress-Portal) and [CryptoExpress-Network](https://github.com/Jerrylum/CryptoExpress-Network). The detail of Installation and the Glossary can be accessed via the [Readme at CryptoExpress-Portal](https://github.com/Jerrylum/CryptoExpress-Portal/blob/main/README.md).
+This repository is the chaincode for the CryptoExpress project. The chaincode is designed to run in a secured Docker container isolated from the endorsing peer process. Chaincode initializes and manages ledger state through transactions submitted by applications. For the network setup and the chaincode deployment, please refer to the [CryptoExpress-Network](https://github.com/Jerrylum/CryptoExpress-Network). For the portal to interact with the network, please refer to the [CryptoExpress-Portal](https://github.com/Jerrylum/CryptoExpress-Portal).
 
-## Script Description
+### Development
+To develop and test the chaincode locally, you can use the provided scripts to build and test the chaincode:
+
+```bash
+# Using node 18.17
+
+# Install dependencies
+npm ci
+
+# Build the chaincode
+npm run build
+
+# Test the chaincode
+npm run test
+```
+
+## Project Structure
 
 ### DeliveryContract
 `DeliveryContract` is a smart contract designed for managing delivery-related operations within a Hyperledger Fabric blockchain network. The contract is built using the Fabric Contract API, which provides a framework for developing chaincode (smart contracts) in TypeScript. The DeliveryContract class extends the Contract class from the Fabric Contract API, inheriting its capabilities to interact with the blockchain ledger.
@@ -33,9 +50,6 @@ The general use cases including:
 - Object Manipulation: Functions `omitProperty` are used to remove specific properties from objects, for data sanitization.
 - Validation: Functions `isValidHashIdObject`, `isValidPublicKey`, `isValidUuid`, and `isValidRouteDetail` are designed to validate various types of data, including hash IDs, public keys, UUIDs, and route details.
 - Cryptographic Operations: Functions `generateKeyPair` for generating key pairs , `importPublicKey`, `exportPublicKey`, `importPrivateKey`, `exportPrivateKey` for importing and exporting public and private keys , and `signObject`, `verifyObject` for signing and verifying objects.
-
-### index
-`index` is the configuration script for register the custom serializer `SimpleJSONSerializer` for the chaincode.
 
 ### generateMetadata
 `generateMetadata` is the script to generate and write contract metadata for the chaincode.
